@@ -48,6 +48,8 @@ jac start --dev main.jac
 - Use `jac check main.jac` to validate the project after pulling on a new device.
 - Use `jac build` to validate the production client bundle.
 - Use `jac start --dev main.jac` for local iteration.
+- See `docs/README.md` for the full project documentation set and implementation history.
+- See `docs/openai-integration-implementation-notes.md` for the planned OpenAI/byLLM rollout, fallback strategy, and cross-machine dev-runtime fixes.
 - RepoGhost is currently optimized for local demo mode with no auth requirement.
 - The compact widget and expanded workspace are both available in the same dev UI shell.
 

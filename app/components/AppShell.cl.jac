@@ -4,58 +4,79 @@ import from .WorkspaceShell { WorkspaceShell }
 import from .ErrorBanner { ErrorBanner }
 
 def:pub AppShell() -> JsxElement {
-    data = useRepoGhost();
-    bundle = data["bundle"];
-    error = data["error"] or "";
+    state = useRepoGhost();
 
-    return <div className="min-h-screen bg-background text-foreground">
-        <div className="mx-auto max-w-[1600px] px-4 py-6 lg:px-6">
-            <div className="mb-6 flex flex-col gap-4 rounded-[2rem] border border-border bg-panel/80 p-5 shadow-[var(--shadow-glow)] backdrop-blur lg:flex-row lg:items-end lg:justify-between">
-                <div>
-                    <div className="text-xs uppercase tracking-[0.32em] text-accent-2">Desktop-ready Jac sidecar</div>
-                    <h1 className="mt-3 text-4xl font-extrabold tracking-tight text-foreground">RepoGhost</h1>
-                    <p className="mt-2 max-w-3xl text-sm leading-6 text-muted">An agentic developer workspace that ingests repo structure and meeting context, builds a live project graph, and turns conversation into engineering output.</p>
+    return <div className="mx-auto flex min-h-screen w-full max-w-[1600px] flex-col gap-6 px-4 py-6 lg:px-6">
+        <div className="flex flex-col gap-4 rounded-[2rem] border border-border bg-panel/80 p-6 shadow-[var(--shadow-glow)] backdrop-blur xl:flex-row xl:items-end xl:justify-between">
+            <div>
+                <div className="text-xs uppercase tracking-[0.32em] text-accent-2">Repo-aware developer sidecar</div>
+                <h1 className="mt-3 text-4xl font-bold tracking-tight text-foreground">RepoGhost</h1>
+                <p className="mt-3 max-w-3xl text-sm leading-7 text-muted">
+                    A graph-native Jac workspace that ingests repo structure and meeting context, merges Stage 1 outputs into a unified project context graph, and turns developer conversation into actionable engineering output.
+                </p>
+            </div>
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                <div className="rounded-2xl border border-border bg-panel-soft px-4 py-3 text-center">
+                    <div className="text-lg font-semibold text-foreground">{str(len(state["graphNodes"]))}</div>
+                    <div className="text-[10px] uppercase tracking-[0.18em] text-muted">Graph nodes</div>
                 </div>
-                <div className="grid grid-cols-2 gap-3 text-sm text-muted md:grid-cols-4">
-                    <div className="rounded-2xl border border-border bg-panel-soft px-4 py-3"><div className="text-xs uppercase tracking-[0.18em]">Mode</div><div className="mt-1 font-semibold text-foreground">{data["mode"]}</div></div>
-                    <div className="rounded-2xl border border-border bg-panel-soft px-4 py-3"><div className="text-xs uppercase tracking-[0.18em]">Repo</div><div className="mt-1 font-semibold text-foreground">{data["repoPath"]}</div></div>
-                    <div className="rounded-2xl border border-border bg-panel-soft px-4 py-3"><div className="text-xs uppercase tracking-[0.18em]">Status</div><div className="mt-1 font-semibold text-foreground">{("Loading" if data["loading"] else "Ready")}</div></div>
-                    <div className="rounded-2xl border border-border bg-panel-soft px-4 py-3"><div className="text-xs uppercase tracking-[0.18em]">Trace</div><div className="mt-1 font-semibold text-foreground">{str(len(bundle.trace) if bundle else 0) + " steps"}</div></div>
+                <div className="rounded-2xl border border-border bg-panel-soft px-4 py-3 text-center">
+                    <div className="text-lg font-semibold text-foreground">{str(len(state["graphEdges"]))}</div>
+                    <div className="text-[10px] uppercase tracking-[0.18em] text-muted">Graph edges</div>
+                </div>
+                <div className="rounded-2xl border border-border bg-panel-soft px-4 py-3 text-center">
+                    <div className="text-lg font-semibold text-foreground">{str(len(state["bundle"].trace if state["bundle"] else []))}</div>
+                    <div className="text-[10px] uppercase tracking-[0.18em] text-muted">Trace steps</div>
+                </div>
+                <div className="rounded-2xl border border-border bg-panel-soft px-4 py-3 text-center">
+                    <div className="text-lg font-semibold text-foreground">{state["mode"]}</div>
+                    <div className="text-[10px] uppercase tracking-[0.18em] text-muted">Current mode</div>
                 </div>
             </div>
-            {error and (<div className="mb-4"><ErrorBanner message={error} /></div>)}
-            <div className="grid gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
+        </div>
+
+        {state["error"] and <ErrorBanner message={state["error"]} />}
+
+        <div className="grid gap-6 xl:grid-cols-[380px_minmax(0,1fr)]">
+            <div className="xl:sticky xl:top-6 xl:self-start">
                 <WidgetShell
-                    bundle={bundle}
-                    mode={data["mode"]}
-                    modes={data["modes"]}
-                    quickPrompts={data["quickPrompts"]}
-                    draftPrompt={data["draftPrompt"]}
-                    loading={data["loading"]}
-                    expanded={data["expanded"]}
-                    setMode={data["setMode"]}
-                    setDraftPrompt={data["setDraftPrompt"]}
-                    applyQuickPrompt={data["applyQuickPrompt"]}
-                    submit={data["submit"]}
-                    toggleExpanded={data["toggleExpanded"]}
-                />
-                <WorkspaceShell
-                    bundle={bundle}
-                    tabs={data["tabs"]}
-                    mode={data["mode"]}
-                    activeTab={data["activeTab"]}
-                    chatThread={data["chatThread"]}
-                    repoPath={data["repoPath"]}
-                    meetingText={data["meetingText"]}
-                    draftPrompt={data["draftPrompt"]}
-                    loading={data["loading"]}
-                    setActiveTab={data["setActiveTab"]}
-                    setRepoPath={data["setRepoPath"]}
-                    setMeetingText={data["setMeetingText"]}
-                    setDraftPrompt={data["setDraftPrompt"]}
-                    submit={data["submit"]}
+                    bundle={state["bundle"]}
+                    mode={state["mode"]}
+                    modes={state["modes"]}
+                    quickPrompts={state["quickPrompts"]}
+                    draftPrompt={state["draftPrompt"]}
+                    loading={state["loading"]}
+                    expanded={state["expanded"]}
+                    graphNodes={state["graphNodes"]}
+                    graphEdges={state["graphEdges"]}
+                    graphFocusPaths={state["graphFocusPaths"]}
+                    setMode={state["setMode"]}
+                    toggleExpanded={state["toggleExpanded"]}
+                    setDraftPrompt={state["setDraftPrompt"]}
+                    submit={state["submit"]}
+                    applyQuickPrompt={state["applyQuickPrompt"]}
                 />
             </div>
+
+            {state["expanded"] and <WorkspaceShell
+                bundle={state["bundle"]}
+                tabs={state["tabs"]}
+                mode={state["mode"]}
+                activeTab={state["activeTab"]}
+                chatThread={state["chatThread"]}
+                repoPath={state["repoPath"]}
+                meetingText={state["meetingText"]}
+                draftPrompt={state["draftPrompt"]}
+                loading={state["loading"]}
+                graphNodes={state["graphNodes"]}
+                graphEdges={state["graphEdges"]}
+                graphFocusPaths={state["graphFocusPaths"]}
+                setActiveTab={state["setActiveTab"]}
+                setRepoPath={state["setRepoPath"]}
+                setMeetingText={state["setMeetingText"]}
+                setDraftPrompt={state["setDraftPrompt"]}
+                submit={state["submit"]}
+            />}
         </div>
     </div>;
 }

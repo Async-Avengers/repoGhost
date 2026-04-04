@@ -8,6 +8,9 @@ def:pub WorkspaceShell(props: dict = {}) -> JsxElement {
     meetingText = props.meetingText or "";
     draftPrompt = props.draftPrompt or "";
     loading = props.loading or False;
+    graphNodes = props.graphNodes or [];
+    graphEdges = props.graphEdges or [];
+    graphFocusPaths = props.graphFocusPaths or [];
     onTab = props.setActiveTab or None;
     onRepo = props.setRepoPath or None;
     onMeeting = props.setMeetingText or None;
@@ -66,6 +69,11 @@ def:pub WorkspaceShell(props: dict = {}) -> JsxElement {
                     for step in trace
                 ]}
             </div>
+            <div className="mt-6 text-xs uppercase tracking-[0.24em] text-muted">Graph stats</div>
+            <div className="mt-3 grid grid-cols-2 gap-2 text-center text-xs text-muted">
+                <div className="rounded-xl border border-border bg-panel px-3 py-3"><div className="text-lg font-semibold text-foreground">{str(len(graphNodes))}</div><div>Nodes</div></div>
+                <div className="rounded-xl border border-border bg-panel px-3 py-3"><div className="text-lg font-semibold text-foreground">{str(len(graphEdges))}</div><div>Edges</div></div>
+            </div>
         </aside>
 
         <section className="col-span-12 rounded-[1.5rem] border border-border bg-panel-soft p-5 lg:col-span-6">
@@ -74,7 +82,7 @@ def:pub WorkspaceShell(props: dict = {}) -> JsxElement {
                     <div className="text-xs uppercase tracking-[0.24em] text-accent-2">Assistant thread</div>
                     <h3 className="mt-2 text-2xl font-semibold text-foreground">Chat-first engineering workspace</h3>
                 </div>
-                <div className="rounded-full border border-border px-3 py-1 text-xs text-muted">{("Workflow running" if loading else "Live trace visible")}</div>
+                <div className="rounded-full border border-border px-3 py-1 text-xs text-muted">{("Workflow running" if loading else "Graph-backed context ready")}</div>
             </div>
 
             <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
@@ -107,20 +115,37 @@ def:pub WorkspaceShell(props: dict = {}) -> JsxElement {
                 </div>
             </div>
 
-            <div className="mt-4 rounded-[1.5rem] border border-border bg-panel p-4">
-                <div className="text-xs uppercase tracking-[0.18em] text-muted">Agent timeline</div>
-                <div className="mt-3 space-y-3">
-                    {[
-                        <div key={step.agent + step.stage} className="flex items-start gap-3 rounded-2xl border border-border bg-panel-soft px-4 py-3">
-                            <div className={"mt-1 h-2.5 w-2.5 rounded-full " + ("bg-success" if step.status == "done" else ("bg-warning" if step.status == "running" else "bg-muted"))} />
-                            <div>
-                                <div className="text-sm font-medium text-foreground">{step.agent}</div>
-                                <div className="mt-1 text-xs uppercase tracking-[0.18em] text-muted">{step.stage + " • " + step.status}</div>
-                                <div className="mt-2 text-sm text-muted">{step.detail}</div>
+            <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
+                <div className="rounded-[1.5rem] border border-border bg-panel p-4">
+                    <div className="flex items-center justify-between gap-3">
+                        <div className="text-xs uppercase tracking-[0.18em] text-muted">Agent timeline</div>
+                        <div className="text-[10px] uppercase tracking-[0.18em] text-accent-2">Stage 1 merge visible</div>
+                    </div>
+                    <div className="mt-3 space-y-3">
+                        {[
+                            <div key={step.agent + step.stage} className="flex items-start gap-3 rounded-2xl border border-border bg-panel-soft px-4 py-3">
+                                <div className={"mt-1 h-2.5 w-2.5 rounded-full " + ("bg-success" if step.status == "done" else ("bg-warning" if step.status == "running" else "bg-muted"))} />
+                                <div>
+                                    <div className="text-sm font-medium text-foreground">{step.agent}</div>
+                                    <div className="mt-1 text-xs uppercase tracking-[0.18em] text-muted">{step.stage + " • " + step.status}</div>
+                                    <div className="mt-2 text-sm text-muted">{step.detail}</div>
+                                </div>
                             </div>
-                        </div>
-                        for step in trace
-                    ]}
+                            for step in trace
+                        ]}
+                    </div>
+                </div>
+                <div className="rounded-[1.5rem] border border-border bg-panel p-4">
+                    <div className="flex items-center justify-between gap-3">
+                        <div className="text-xs uppercase tracking-[0.18em] text-muted">Graph focus paths</div>
+                        <div className="text-[10px] uppercase tracking-[0.18em] text-accent-2">Unified context</div>
+                    </div>
+                    <div className="mt-3 space-y-2">
+                        {[
+                            <div key={item} className="rounded-xl border border-border bg-panel-soft px-3 py-2 text-sm text-foreground">{item}</div>
+                            for item in graphFocusPaths[0:6]
+                        ]}
+                    </div>
                 </div>
             </div>
         </section>
@@ -148,6 +173,22 @@ def:pub WorkspaceShell(props: dict = {}) -> JsxElement {
                         <div className="mt-4 space-y-2">{[
                             <div key={item} className="rounded-xl border border-border bg-panel-soft px-3 py-2 text-sm text-foreground">{item}</div>
                             for item in (bundle.meeting_summary.action_items if bundle else [])
+                        ]}</div>
+                    </div>
+                    <div className="rounded-2xl border border-border bg-panel p-4">
+                        <div className="flex items-center justify-between gap-3">
+                            <div className="text-xs uppercase tracking-[0.18em] text-muted">Context graph</div>
+                            <div className="text-[10px] uppercase tracking-[0.18em] text-accent-2">{str(len(graphNodes))} nodes</div>
+                        </div>
+                        <div className="mt-3 space-y-2">{[
+                            <div key={item.id} className="rounded-xl border border-border bg-panel-soft px-3 py-3">
+                                <div className="flex items-center justify-between gap-3">
+                                    <div className="text-sm font-medium text-foreground">{item.label}</div>
+                                    <div className="text-[10px] uppercase tracking-[0.18em] text-muted">{item.kind}</div>
+                                </div>
+                                <div className="mt-1 text-xs text-muted">{item.detail}</div>
+                            </div>
+                            for item in graphNodes[0:8]
                         ]}</div>
                     </div>
                 </div>)}
@@ -253,16 +294,32 @@ def:pub WorkspaceShell(props: dict = {}) -> JsxElement {
                     </div>
                 </div>)}
 
-                {activeTab == "trace" and (<div className="rounded-2xl border border-border bg-panel p-4">
-                    <div className="text-xs uppercase tracking-[0.18em] text-muted">Trace</div>
-                    <div className="mt-3 space-y-3">{[
-                        <div key={step.agent + step.stage} className="rounded-xl border border-border bg-panel-soft px-3 py-3">
-                            <div className="flex items-center justify-between gap-3"><div className="text-sm font-medium text-foreground">{step.agent}</div><div className="text-[10px] uppercase tracking-[0.18em] text-muted">{step.stage}</div></div>
-                            <div className="mt-1 text-xs text-muted">{step.detail}</div>
-                            <div className="mt-2 text-[10px] uppercase tracking-[0.18em] text-accent-2">{step.status}</div>
+                {activeTab == "trace" and (<div className="space-y-4">
+                    <div className="rounded-2xl border border-border bg-panel p-4">
+                        <div className="text-xs uppercase tracking-[0.18em] text-muted">Trace</div>
+                        <div className="mt-3 space-y-3">{[
+                            <div key={step.agent + step.stage} className="rounded-xl border border-border bg-panel-soft px-3 py-3">
+                                <div className="flex items-center justify-between gap-3"><div className="text-sm font-medium text-foreground">{step.agent}</div><div className="text-[10px] uppercase tracking-[0.18em] text-muted">{step.stage}</div></div>
+                                <div className="mt-1 text-xs text-muted">{step.detail}</div>
+                                <div className="mt-2 text-[10px] uppercase tracking-[0.18em] text-accent-2">{step.status}</div>
+                            </div>
+                            for step in trace
+                        ]}</div>
+                    </div>
+                    <div className="rounded-2xl border border-border bg-panel p-4">
+                        <div className="flex items-center justify-between gap-3">
+                            <div className="text-xs uppercase tracking-[0.18em] text-muted">Graph edges</div>
+                            <div className="text-[10px] uppercase tracking-[0.18em] text-accent-2">{str(len(graphEdges))} relationships</div>
                         </div>
-                        for step in trace
-                    ]}</div>
+                        <div className="mt-3 space-y-2">{[
+                            <div key={item.source + item.target + item.kind} className="rounded-xl border border-border bg-panel-soft px-3 py-3">
+                                <div className="text-sm font-medium text-foreground">{item.kind}</div>
+                                <div className="mt-1 text-xs text-muted">{item.source + " → " + item.target}</div>
+                                <div className="mt-2 text-xs text-muted">{item.detail}</div>
+                            </div>
+                            for item in graphEdges[0:10]
+                        ]}</div>
+                    </div>
                 </div>)}
             </div>
         </section>

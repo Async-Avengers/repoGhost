@@ -5,6 +5,9 @@ def:pub WidgetShell(props: dict = {}) -> JsxElement {
     quickPrompts = props.quickPrompts or [];
     draftPrompt = props.draftPrompt or "";
     loading = props.loading or False;
+    graphNodes = props.graphNodes or [];
+    graphEdges = props.graphEdges or [];
+    graphFocusPaths = props.graphFocusPaths or [];
     onMode = props.setMode or None;
     onExpand = props.toggleExpanded or None;
     onDraft = props.setDraftPrompt or None;
@@ -76,10 +79,11 @@ def:pub WidgetShell(props: dict = {}) -> JsxElement {
             <button onClick={sendPrompt} className="mt-3 w-full rounded-2xl bg-accent px-4 py-3 text-sm font-semibold text-background transition hover:brightness-110">Run workflow</button>
         </div>
 
-        <div className="mt-4 grid grid-cols-3 gap-3 text-center text-xs text-muted">
+        <div className="mt-4 grid grid-cols-4 gap-3 text-center text-xs text-muted">
             <div className="rounded-2xl border border-border bg-panel-soft p-3"><div className="text-lg font-semibold text-foreground">{str(len(files))}</div><div>Files</div></div>
             <div className="rounded-2xl border border-border bg-panel-soft p-3"><div className="text-lg font-semibold text-foreground">{str(len(blockers))}</div><div>Blockers</div></div>
             <div className="rounded-2xl border border-border bg-panel-soft p-3"><div className="text-lg font-semibold text-foreground">{str(len(trace))}</div><div>Agents</div></div>
+            <div className="rounded-2xl border border-border bg-panel-soft p-3"><div className="text-lg font-semibold text-foreground">{str(len(graphNodes))}</div><div>Graph</div></div>
         </div>
 
         <div className="mt-4 rounded-2xl border border-border bg-panel-soft p-4">
@@ -90,6 +94,19 @@ def:pub WidgetShell(props: dict = {}) -> JsxElement {
                         {item["label"]}
                     </button>
                     for item in quickPrompts
+                ]}
+            </div>
+        </div>
+
+        <div className="mt-4 rounded-2xl border border-border bg-panel-soft p-4">
+            <div className="flex items-center justify-between gap-3">
+                <div className="text-xs uppercase tracking-[0.2em] text-muted">Graph focus</div>
+                <div className="text-[10px] uppercase tracking-[0.18em] text-accent-2">{str(len(graphEdges))} edges</div>
+            </div>
+            <div className="mt-3 space-y-2">
+                {[
+                    <div key={item} className="rounded-xl border border-border/70 bg-panel px-3 py-2 text-sm text-foreground">{item}</div>
+                    for item in graphFocusPaths[0:3]
                 ]}
             </div>
         </div>

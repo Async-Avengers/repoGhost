@@ -1,5 +1,6 @@
 import from .core { FileMatch, OwnershipGuess, MeetingSummary, BlockerItem, DecisionItem }
 import from .workflow { WorkflowTraceStep, ExecutionPlanningContext }
+import from ..graph.builder { ProjectContextGraph }
 
 obj RepoSummary {
     has project_name: str = "RepoGhost";
@@ -69,4 +70,5 @@ obj WorkflowResultBundle {
     has standup: StandupUpdateData = StandupUpdateData();
     has review: ReviewScopeData = ReviewScopeData();
     has trace: list[WorkflowTraceStep] = [];
+    has context_graph: ProjectContextGraph = ProjectContextGraph();
 }

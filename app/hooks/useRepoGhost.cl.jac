@@ -82,6 +82,27 @@ def:pub useRepoGhost() -> dict {
         expanded = not expanded;
     }
 
+    def graphNodes() -> list {
+        if bundle and bundle.context_graph {
+            return bundle.context_graph.nodes;
+        }
+        return [];
+    }
+
+    def graphEdges() -> list {
+        if bundle and bundle.context_graph {
+            return bundle.context_graph.edges;
+        }
+        return [];
+    }
+
+    def graphFocusPaths() -> list[str] {
+        if bundle and bundle.context_graph {
+            return bundle.context_graph.focus_paths;
+        }
+        return [];
+    }
+
     return {
         "repoPath": repoPath,
         "meetingText": meetingText,
@@ -97,6 +118,9 @@ def:pub useRepoGhost() -> dict {
         "modes": defaultModes(),
         "tabs": defaultTabs(),
         "quickPrompts": quickPrompts(),
+        "graphNodes": graphNodes(),
+        "graphEdges": graphEdges(),
+        "graphFocusPaths": graphFocusPaths(),
         "submit": submit,
         "setMode": setMode,
         "setRepoPath": setRepoPath,

@@ -24,6 +24,14 @@ def widget_button_label(loading: bool) -> str {
     return "Run workflow";
 }
 
+def invoke_callback(fn: Any, value: Any) -> None {
+    fn.call(None, value);
+}
+
+async def invoke_async_callback(fn: Any, value: Any) -> None {
+    await fn.call(None, value);
+}
+
 def widget_error_panel(error: str) -> JsxElement {
     if error {
         return <div className="mt-4 rounded-[1.25rem] border border-danger/40 bg-danger/10 px-3 py-3 text-sm leading-6 text-foreground">
@@ -128,7 +136,7 @@ def:pub WidgetShell(
 
     async def runPrompt() -> None {
         if onSubmit {
-            await onSubmit(draftPrompt);
+            await invoke_async_callback(onSubmit, draftPrompt);
         }
     }
 
@@ -168,7 +176,7 @@ def:pub WidgetShell(
                 <div className="text-xs uppercase tracking-[0.18em] text-muted">Quick chat</div>
                 <div className="text-[10px] uppercase tracking-[0.18em] text-muted">{widget_run_label(loading)}</div>
             </div>
-            <textarea value={draftPrompt} onChange={lambda e: Any -> None { if onDraft { onDraft(e.target.value); } }} className="mt-3 min-h-[110px] w-full rounded-2xl border border-border bg-panel px-3 py-3 text-sm text-foreground outline-none transition placeholder:text-muted focus:border-accent" placeholder="Ask RepoGhost what to work on first, what files are involved, or what blockers it sees..." />
+            <textarea value={draftPrompt} onChange={lambda e: Any -> None { if onDraft { invoke_callback(onDraft, e.target.value); } }} className="mt-3 min-h-[110px] w-full rounded-2xl border border-border bg-panel px-3 py-3 text-sm text-foreground outline-none transition placeholder:text-muted focus:border-accent" placeholder="Ask RepoGhost what to work on first, what files are involved, or what blockers it sees..." />
             <button onClick={runPrompt} className="mt-3 w-full rounded-2xl bg-accent px-4 py-3 text-sm font-semibold text-background transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60" disabled={loading}>
                 {widget_button_label(loading)}
             </button>

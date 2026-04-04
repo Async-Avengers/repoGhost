@@ -3,8 +3,10 @@ sv include app.orchestration.workflow;
 import from app.components.WidgetShell { WidgetShell }
 import from app.components.WorkspaceShell { WorkspaceShell }
 
-def tap_str(value: str) -> str {
-    return value;
+def mark_used(value: Any) -> None {
+    if value {
+        return;
+    }
 }
 
 async def fetchWorkflowBundle(repoPath: str, meetingText: str, prompt: str, mode: str) -> Any {
@@ -67,57 +69,64 @@ def:pub AppShell() -> JsxElement {
         }
     ];
 
+    def appendChatMessage(role: str, content: str) -> None {
+        message: dict[str, str] = {
+            "role": role,
+            "content": content
+        };
+        messages: list[dict[str, str]] = [];
+        for item in chatThread {
+            messages.append(item);
+        }
+        messages.append(message);
+        chatThread = messages;
+    }
+
     async def loadBundle() -> None {
         loading = True;
         error = "";
-        error = tap_str(error);
+        mark_used(error);
         lastRunLabel = "Running " + mode + " workflow";
         assert len(lastRunLabel) >= 0;
         try {
             nextBundle: Any = await fetchWorkflowBundle(repoPath, meetingText, prompt, mode);
             bundle = nextBundle;
             lastRunLabel = "Completed " + mode + " workflow";
-            if lastRunLabel {
-                chatThread.append({
-                    "role": "assistant",
-                    "content": nextBundle.action_plan.headline
-                });
+            mark_used(lastRunLabel);
+            if nextBundle.action_plan.headline {
+                appendChatMessage("assistant", nextBundle.action_plan.headline);
             }
         } except ValueError as e {
-            error = tap_str(str(e));
+            error = str(e);
+            mark_used(error);
             lastRunLabel = "Workflow failed";
-            if error and lastRunLabel {
-                chatThread.append({
-                    "role": "assistant",
-                    "content": "RepoGhost hit an error while processing this run. Review the error banner and try again."
-                });
+            mark_used(lastRunLabel);
+            if error {
+                appendChatMessage("assistant", "RepoGhost hit an error while processing this run. Review the error banner and try again.");
             }
         } except RuntimeError as e {
-            error = tap_str(str(e));
+            error = str(e);
+            mark_used(error);
             lastRunLabel = "Workflow failed";
-            if error and lastRunLabel {
-                chatThread.append({
-                    "role": "assistant",
-                    "content": "RepoGhost hit an error while processing this run. Review the error banner and try again."
-                });
+            mark_used(lastRunLabel);
+            if error {
+                appendChatMessage("assistant", "RepoGhost hit an error while processing this run. Review the error banner and try again.");
             }
         } except TypeError as e {
-            error = tap_str(str(e));
+            error = str(e);
+            mark_used(error);
             lastRunLabel = "Workflow failed";
-            if error and lastRunLabel {
-                chatThread.append({
-                    "role": "assistant",
-                    "content": "RepoGhost hit an error while processing this run. Review the error banner and try again."
-                });
+            mark_used(lastRunLabel);
+            if error {
+                appendChatMessage("assistant", "RepoGhost hit an error while processing this run. Review the error banner and try again.");
             }
         } except OSError as e {
-            error = tap_str(str(e));
+            error = str(e);
+            mark_used(error);
             lastRunLabel = "Workflow failed";
-            if error and lastRunLabel {
-                chatThread.append({
-                    "role": "assistant",
-                    "content": "RepoGhost hit an error while processing this run. Review the error banner and try again."
-                });
+            mark_used(lastRunLabel);
+            if error {
+                appendChatMessage("assistant", "RepoGhost hit an error while processing this run. Review the error banner and try again.");
             }
         }
         loading = False;
@@ -134,37 +143,32 @@ def:pub AppShell() -> JsxElement {
         }
         if not chosen {
             error = "Add a prompt before running the workflow.";
-            error = tap_str(error);
             return;
         }
         prompt = chosen;
-        prompt = tap_str(prompt);
+        mark_used(prompt);
         draftPrompt = chosen;
-        draftPrompt = tap_str(draftPrompt);
-        nextMessage: dict[str, str] = {
-            "role": "user",
-            "content": chosen
-        };
-        chatThread.append(nextMessage);
+        mark_used(draftPrompt);
+        appendChatMessage("user", chosen);
         await loadBundle();
     }
 
     def updateRepoPath(nextPath: str) -> None {
         repoPath = nextPath;
-        repoPath = tap_str(repoPath);
+        mark_used(repoPath);
     }
 
     def updateMeetingText(nextText: str) -> None {
         meetingText = nextText;
-        meetingText = tap_str(meetingText);
+        mark_used(meetingText);
     }
 
     def updateDraftPrompt(nextPrompt: str) -> None {
         draftPrompt = nextPrompt;
-        draftPrompt = tap_str(draftPrompt);
+        mark_used(draftPrompt);
         if error {
             error = "";
-            error = tap_str(error);
+            mark_used(error);
         }
     }
 

@@ -21,6 +21,14 @@ def workspace_button_label(loading: bool) -> str {
     return "Run workflow";
 }
 
+def invoke_callback(fn: Any, value: Any) -> None {
+    fn.call(None, value);
+}
+
+async def invoke_async_callback(fn: Any, value: Any) -> None {
+    await fn.call(None, value);
+}
+
 def trace_card_key(item: Any) -> str {
     return str(item.agent) + str(item.stage);
 }
@@ -86,7 +94,7 @@ def:pub WorkspaceShell(
 
     async def sendPrompt() -> None {
         if onSubmit {
-            await onSubmit(draftPrompt);
+            await invoke_async_callback(onSubmit, draftPrompt);
         }
     }
 
@@ -272,11 +280,11 @@ def:pub WorkspaceShell(
         <div className="mt-4 grid gap-4 lg:grid-cols-3">
             <div className="rounded-[1.5rem] border border-border bg-panel-soft p-4 lg:col-span-1">
                 <div className="text-xs uppercase tracking-[0.18em] text-muted">Repo path</div>
-                <input value={repoPath} onChange={lambda e: Any -> None { if onRepo { onRepo(e.target.value); } }} className="mt-2 w-full rounded-2xl border border-border bg-panel px-3 py-3 text-sm text-foreground outline-none focus:border-accent" placeholder="C:/path/to/repo" />
+                <input value={repoPath} onChange={lambda e: Any -> None { if onRepo { invoke_callback(onRepo, e.target.value); } }} className="mt-2 w-full rounded-2xl border border-border bg-panel px-3 py-3 text-sm text-foreground outline-none focus:border-accent" placeholder="C:/path/to/repo" />
                 <div className="mt-4 text-xs uppercase tracking-[0.18em] text-muted">Meeting notes</div>
-                <textarea value={meetingText} onChange={lambda e: Any -> None { if onMeeting { onMeeting(e.target.value); } }} className="mt-2 min-h-[140px] w-full rounded-2xl border border-border bg-panel px-3 py-3 text-sm text-foreground outline-none focus:border-accent" placeholder="Paste meeting notes or transcript" />
+                <textarea value={meetingText} onChange={lambda e: Any -> None { if onMeeting { invoke_callback(onMeeting, e.target.value); } }} className="mt-2 min-h-[140px] w-full rounded-2xl border border-border bg-panel px-3 py-3 text-sm text-foreground outline-none focus:border-accent" placeholder="Paste meeting notes or transcript" />
                 <div className="mt-4 text-xs uppercase tracking-[0.18em] text-muted">Prompt</div>
-                <textarea value={draftPrompt} onChange={lambda e: Any -> None { if onDraft { onDraft(e.target.value); } }} className="mt-2 min-h-[120px] w-full rounded-2xl border border-border bg-panel px-3 py-3 text-sm text-foreground outline-none focus:border-accent" placeholder="Turn this meeting into tickets" />
+                <textarea value={draftPrompt} onChange={lambda e: Any -> None { if onDraft { invoke_callback(onDraft, e.target.value); } }} className="mt-2 min-h-[120px] w-full rounded-2xl border border-border bg-panel px-3 py-3 text-sm text-foreground outline-none focus:border-accent" placeholder="Turn this meeting into tickets" />
                 <button onClick={sendPrompt} className="mt-3 w-full rounded-2xl bg-accent px-4 py-3 text-sm font-semibold text-background transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60" disabled={loading}>{workspace_button_label(loading)}</button>
             </div>
 

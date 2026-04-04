@@ -6,7 +6,8 @@ RepoGhost is a desktop-ready Jac fullstack application that ingests a permitted 
 - Dark polished widget + expanded workspace shell
 - Typed workflow/result contracts
 - Graph-native domain model contracts
-- Seeded staged workflow bundle for UI development
+- Interactive widget/workspace state wiring
+- Real Stage 1 service layer for repo scan, search, docs sync, meeting parsing, and local memory
 
 ## Run
 ```bash
@@ -22,3 +23,8 @@ Open the app at the local Jac dev URL.
 - Visible multi-agent execution trace
 - Session and project memory
 - Repo-aware structured outputs
+
+## Phase status
+- Phase 1: complete
+- Phase 2: complete
+- Phase 3: complete

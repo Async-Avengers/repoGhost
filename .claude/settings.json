@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(jac --help)",
+      "Bash(jac build:*)",
+      "Bash(jac plugins:*)",
+      "Bash(jac nacompile:*)",
+      "Bash(jac script:*)",
+      "Bash(jac check:*)"
+    ]
+  }
+}

@@ -1,0 +1,30 @@
+[project]
+name = "repoghost"
+version = "0.1.0"
+description = "RepoGhost - desktop-ready AI developer sidecar built with Jac"
+entry-point = "main.jac"
+
+[plugins.client]
+enabled = true
+
+[plugins.client.vite]
+enabled = true
+port = 8001
+host = "127.0.0.1"
+plugins = ["tailwindcss()", "repoghostClientResolve(buildDir)"]
+lib_imports = ["import tailwindcss from '@tailwindcss/vite'", "import repoghostClientResolve from '../../../vite.repoghost.resolve.mjs'"]
+
+[tool.repoghost.desktop]
+widget_mode = "compact-floating"
+workspace_mode = "expanded"
+always_on_top_ready = true
+packaging_target = "tauri"
+notes = "Desktop packaging is not wired yet, but the UI shell and local-first workflow are prepared for a Tauri/Jac desktop wrapper."
+
+[dependencies.npm]
+jac-client-node = "1.0.7"
+
+[dependencies.npm.dev]
+"@jac-client/dev-deps" = "2.0.0"
+"@tailwindcss/vite" = "^4.1.17"
+tailwindcss = "^4.1.17"

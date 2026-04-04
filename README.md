@@ -17,19 +17,69 @@ RepoGhost is a desktop-ready Jac fullstack application that ingests a permitted 
 
 ## Run locally
 
+### Prerequisites
+
+- Jac CLI installed and available on `PATH`
+- Bun installed and available on `PATH`
+- Python available for the Jac runtime
+
+This project uses the Jac client/Vite pipeline, and that currently depends on Bun on a fresh machine.
+
+### Fresh machine setup
+
 ```bash
+python -m pip install -r requirements.txt
 jac install
+jac check main.jac
 jac start --dev main.jac
 ```
 
-Open the app at the local Jac dev URL, typically `http://127.0.0.1:8001`.
+### Local URLs
+
+- App UI: `http://127.0.0.1:8000`
+- Jac API docs: `http://127.0.0.1:8001/docs`
+
+`http://127.0.0.1:8001` is the API server, not the main app page.
 
 ## Build notes
 
 - Use `jac install` after dependency or `jac.toml` changes.
+- Bun is required for the generated client build/dev flow.
+- Use `jac check main.jac` to validate the project after pulling on a new device.
+- Use `jac build` to validate the production client bundle.
 - Use `jac start --dev main.jac` for local iteration.
 - RepoGhost is currently optimized for local demo mode with no auth requirement.
 - The compact widget and expanded workspace are both available in the same dev UI shell.
+
+## Troubleshooting
+
+### The app works at `/docs` but not in the browser UI
+
+That usually means the Jac API is up, but the Vite client is not the page you are opening.
+
+- open `http://127.0.0.1:8000` for the UI
+- open `http://127.0.0.1:8001/docs` for the API docs
+
+### Fresh pull on a different machine fails to start
+
+Check these first:
+
+- Bun is installed and available on `PATH`
+- `jac install` completed successfully
+- `jac check main.jac` passes
+- you are opening `http://127.0.0.1:8000`, not `:8001`
+
+### Browser shows generated-module/import errors
+
+Stop the dev server, then rerun:
+
+```bash
+jac install
+jac check main.jac
+jac start --dev main.jac
+```
+
+If a stale generated client still causes trouble, remove the local `.jac/` folder and start again.
 
 ## Team testing guide
 

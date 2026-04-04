@@ -1,0 +1,13 @@
+# Python prerequisites for RepoGhost
+#
+# Install with:
+#   python -m pip install -r requirements.txt
+#
+# Note:
+# - Bun is still required separately for the Jac client/Vite pipeline.
+# - After installing these Python requirements, run:
+#     jac install
+#     jac check main.jac
+#     jac start --dev main.jac
+
+jaclang==0.13.1

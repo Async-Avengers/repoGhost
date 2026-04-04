@@ -103,6 +103,34 @@ def:pub useRepoGhost() -> dict {
         return [];
     }
 
+    def planningResolved() -> list {
+        if bundle and bundle.planning {
+            return bundle.planning.resolved_mappings;
+        }
+        return [];
+    }
+
+    def planningBlockers() -> list {
+        if bundle and bundle.planning {
+            return bundle.planning.blocker_insights;
+        }
+        return [];
+    }
+
+    def planningImpacts() -> list {
+        if bundle and bundle.planning {
+            return bundle.planning.impact_insights;
+        }
+        return [];
+    }
+
+    def planningTestGaps() -> list {
+        if bundle and bundle.planning {
+            return bundle.planning.test_gap_insights;
+        }
+        return [];
+    }
+
     return {
         "repoPath": repoPath,
         "meetingText": meetingText,
@@ -121,6 +149,10 @@ def:pub useRepoGhost() -> dict {
         "graphNodes": graphNodes(),
         "graphEdges": graphEdges(),
         "graphFocusPaths": graphFocusPaths(),
+        "planningResolved": planningResolved(),
+        "planningBlockers": planningBlockers(),
+        "planningImpacts": planningImpacts(),
+        "planningTestGaps": planningTestGaps(),
         "submit": submit,
         "setMode": setMode,
         "setRepoPath": setRepoPath,

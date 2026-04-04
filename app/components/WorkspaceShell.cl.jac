@@ -1,4 +1,4 @@
-def:pub WorkspaceShell(props: dict = {}) -> JsxElement {
+def:pub WorkspaceShell(props: dict) -> any {
     bundle = props.bundle;
     tabs = props.tabs or [];
     mode = props.mode or "feature_plan";
@@ -11,6 +11,10 @@ def:pub WorkspaceShell(props: dict = {}) -> JsxElement {
     graphNodes = props.graphNodes or [];
     graphEdges = props.graphEdges or [];
     graphFocusPaths = props.graphFocusPaths or [];
+    planningResolved = props.planningResolved or [];
+    planningBlockers = props.planningBlockers or [];
+    planningImpacts = props.planningImpacts or [];
+    planningTestGaps = props.planningTestGaps or [];
     onTab = props.setActiveTab or None;
     onRepo = props.setRepoPath or None;
     onMeeting = props.setMeetingText or None;
@@ -74,6 +78,11 @@ def:pub WorkspaceShell(props: dict = {}) -> JsxElement {
                 <div className="rounded-xl border border-border bg-panel px-3 py-3"><div className="text-lg font-semibold text-foreground">{str(len(graphNodes))}</div><div>Nodes</div></div>
                 <div className="rounded-xl border border-border bg-panel px-3 py-3"><div className="text-lg font-semibold text-foreground">{str(len(graphEdges))}</div><div>Edges</div></div>
             </div>
+            <div className="mt-6 text-xs uppercase tracking-[0.24em] text-muted">Planning stats</div>
+            <div className="mt-3 grid grid-cols-2 gap-2 text-center text-xs text-muted">
+                <div className="rounded-xl border border-border bg-panel px-3 py-3"><div className="text-lg font-semibold text-foreground">{str(len(planningResolved))}</div><div>Resolved</div></div>
+                <div className="rounded-xl border border-border bg-panel px-3 py-3"><div className="text-lg font-semibold text-foreground">{str(len(planningBlockers))}</div><div>Risks</div></div>
+            </div>
         </aside>
 
         <section className="col-span-12 rounded-[1.5rem] border border-border bg-panel-soft p-5 lg:col-span-6">
@@ -82,7 +91,7 @@ def:pub WorkspaceShell(props: dict = {}) -> JsxElement {
                     <div className="text-xs uppercase tracking-[0.24em] text-accent-2">Assistant thread</div>
                     <h3 className="mt-2 text-2xl font-semibold text-foreground">Chat-first engineering workspace</h3>
                 </div>
-                <div className="rounded-full border border-border px-3 py-1 text-xs text-muted">{("Workflow running" if loading else "Graph-backed context ready")}</div>
+                <div className="rounded-full border border-border px-3 py-1 text-xs text-muted">{("Workflow running" if loading else "Planning context ready")}</div>
             </div>
 
             <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
@@ -119,7 +128,7 @@ def:pub WorkspaceShell(props: dict = {}) -> JsxElement {
                 <div className="rounded-[1.5rem] border border-border bg-panel p-4">
                     <div className="flex items-center justify-between gap-3">
                         <div className="text-xs uppercase tracking-[0.18em] text-muted">Agent timeline</div>
-                        <div className="text-[10px] uppercase tracking-[0.18em] text-accent-2">Stage 1 merge visible</div>
+                        <div className="text-[10px] uppercase tracking-[0.18em] text-accent-2">Stage 2 merge visible</div>
                     </div>
                     <div className="mt-3 space-y-3">
                         {[
@@ -174,6 +183,22 @@ def:pub WorkspaceShell(props: dict = {}) -> JsxElement {
                             <div key={item} className="rounded-xl border border-border bg-panel-soft px-3 py-2 text-sm text-foreground">{item}</div>
                             for item in (bundle.meeting_summary.action_items if bundle else [])
                         ]}</div>
+                    </div>
+                    <div className="rounded-2xl border border-border bg-panel p-4">
+                        <div className="flex items-center justify-between gap-3">
+                            <div className="text-xs uppercase tracking-[0.18em] text-muted">Execution planning context</div>
+                            <div className="text-[10px] uppercase tracking-[0.18em] text-accent-2">Stage 2 merged</div>
+                        </div>
+                        <div className="mt-3 grid gap-3 md:grid-cols-2">
+                            <div className="rounded-xl border border-border bg-panel-soft p-3">
+                                <div className="text-[10px] uppercase tracking-[0.18em] text-muted">Resolved areas</div>
+                                <div className="mt-2 space-y-2">{[<div key={item.title} className="text-sm text-foreground">• {item.title}</div> for item in planningResolved[0:4]]}</div>
+                            </div>
+                            <div className="rounded-xl border border-border bg-panel-soft p-3">
+                                <div className="text-[10px] uppercase tracking-[0.18em] text-muted">Impact hotspots</div>
+                                <div className="mt-2 space-y-2">{[<div key={item.title} className="text-sm text-foreground">• {item.title}</div> for item in planningImpacts[0:4]]}</div>
+                            </div>
+                        </div>
                     </div>
                     <div className="rounded-2xl border border-border bg-panel p-4">
                         <div className="flex items-center justify-between gap-3">
@@ -232,16 +257,29 @@ def:pub WorkspaceShell(props: dict = {}) -> JsxElement {
                     ]}</div>
                 </div>)}
 
-                {activeTab == "blockers" and (<div className="rounded-2xl border border-border bg-panel p-4">
-                    <div className="text-xs uppercase tracking-[0.18em] text-muted">Blockers</div>
-                    <div className="mt-3 space-y-2">{[
-                        <div key={item.title} className="rounded-xl border border-danger/30 bg-danger/10 px-3 py-3">
-                            <div className="text-sm font-medium text-foreground">{item.title}</div>
-                            <div className="mt-1 text-xs text-muted">{item.detail}</div>
-                            <div className="mt-2 text-[10px] uppercase tracking-[0.18em] text-danger">{item.severity}</div>
-                        </div>
-                        for item in blockers
-                    ]}</div>
+                {activeTab == "blockers" and (<div className="space-y-4">
+                    <div className="rounded-2xl border border-border bg-panel p-4">
+                        <div className="text-xs uppercase tracking-[0.18em] text-muted">Blockers</div>
+                        <div className="mt-3 space-y-2">{[
+                            <div key={item.title} className="rounded-xl border border-danger/30 bg-danger/10 px-3 py-3">
+                                <div className="text-sm font-medium text-foreground">{item.title}</div>
+                                <div className="mt-1 text-xs text-muted">{item.detail}</div>
+                                <div className="mt-2 text-[10px] uppercase tracking-[0.18em] text-danger">{item.severity}</div>
+                            </div>
+                            for item in blockers
+                        ]}</div>
+                    </div>
+                    <div className="rounded-2xl border border-border bg-panel p-4">
+                        <div className="text-xs uppercase tracking-[0.18em] text-muted">Stage 2 blocker reasoning</div>
+                        <div className="mt-3 space-y-2">{[
+                            <div key={item.title + item.category} className="rounded-xl border border-warning/30 bg-warning/10 px-3 py-3">
+                                <div className="text-sm font-medium text-foreground">{item.title}</div>
+                                <div className="mt-1 text-xs text-muted">{item.detail}</div>
+                                <div className="mt-2 text-[10px] uppercase tracking-[0.18em] text-warning">{item.severity + " • " + item.category}</div>
+                            </div>
+                            for item in planningBlockers
+                        ]}</div>
+                    </div>
                 </div>)}
 
                 {activeTab == "handoff" and (<div className="rounded-2xl border border-border bg-panel p-4">
@@ -262,13 +300,26 @@ def:pub WorkspaceShell(props: dict = {}) -> JsxElement {
                     </div>
                 </div>)}
 
-                {activeTab == "review" and (<div className="rounded-2xl border border-border bg-panel p-4">
-                    <div className="text-xs uppercase tracking-[0.18em] text-muted">Review scope</div>
-                    <div className="mt-2 text-sm leading-6 text-foreground">{bundle.review.summary if bundle else ""}</div>
-                    <div className="mt-4 space-y-2">{[
-                        <div key={item} className="rounded-xl border border-border bg-panel-soft px-3 py-2 text-sm text-foreground">{item}</div>
-                        for item in (bundle.review.checklist if bundle else [])
-                    ]}</div>
+                {activeTab == "review" and (<div className="space-y-4">
+                    <div className="rounded-2xl border border-border bg-panel p-4">
+                        <div className="text-xs uppercase tracking-[0.18em] text-muted">Review scope</div>
+                        <div className="mt-2 text-sm leading-6 text-foreground">{bundle.review.summary if bundle else ""}</div>
+                        <div className="mt-4 space-y-2">{[
+                            <div key={item} className="rounded-xl border border-border bg-panel-soft px-3 py-2 text-sm text-foreground">{item}</div>
+                            for item in (bundle.review.checklist if bundle else [])
+                        ]}</div>
+                    </div>
+                    <div className="rounded-2xl border border-border bg-panel p-4">
+                        <div className="text-xs uppercase tracking-[0.18em] text-muted">Dependency impact reasoning</div>
+                        <div className="mt-3 space-y-2">{[
+                            <div key={item.title + item.category} className="rounded-xl border border-border bg-panel-soft px-3 py-3">
+                                <div className="text-sm font-medium text-foreground">{item.title}</div>
+                                <div className="mt-1 text-xs text-muted">{item.detail}</div>
+                                <div className="mt-2 text-[10px] uppercase tracking-[0.18em] text-accent-2">{item.severity}</div>
+                            </div>
+                            for item in planningImpacts
+                        ]}</div>
+                    </div>
                 </div>)}
 
                 {activeTab == "memory" and (<div className="space-y-4">
@@ -304,6 +355,20 @@ def:pub WorkspaceShell(props: dict = {}) -> JsxElement {
                                 <div className="mt-2 text-[10px] uppercase tracking-[0.18em] text-accent-2">{step.status}</div>
                             </div>
                             for step in trace
+                        ]}</div>
+                    </div>
+                    <div className="rounded-2xl border border-border bg-panel p-4">
+                        <div className="flex items-center justify-between gap-3">
+                            <div className="text-xs uppercase tracking-[0.18em] text-muted">Test gap reasoning</div>
+                            <div className="text-[10px] uppercase tracking-[0.18em] text-accent-2">{str(len(planningTestGaps))} targets</div>
+                        </div>
+                        <div className="mt-3 space-y-2">{[
+                            <div key={item.title + item.category} className="rounded-xl border border-border bg-panel-soft px-3 py-3">
+                                <div className="text-sm font-medium text-foreground">{item.title}</div>
+                                <div className="mt-1 text-xs text-muted">{item.detail}</div>
+                                <div className="mt-2 text-[10px] uppercase tracking-[0.18em] text-accent-2">{item.category + " • " + item.severity}</div>
+                            </div>
+                            for item in planningTestGaps
                         ]}</div>
                     </div>
                     <div className="rounded-2xl border border-border bg-panel p-4">

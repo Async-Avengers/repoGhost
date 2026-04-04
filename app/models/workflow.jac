@@ -27,9 +27,20 @@ obj WorkflowRunState {
     has summary: str = "";
 }
 
+obj PlanningInsight {
+    has title: str = "";
+    has detail: str = "";
+    has severity: str = "medium";
+    has category: str = "context";
+}
+
 obj ExecutionPlanningContext {
     has resolved_areas: list[str] = [];
     has impacts: list[str] = [];
     has test_gaps: list[str] = [];
     has blocker_titles: list[str] = [];
+    has resolved_mappings: list[PlanningInsight] = [];
+    has blocker_insights: list[PlanningInsight] = [];
+    has impact_insights: list[PlanningInsight] = [];
+    has test_gap_insights: list[PlanningInsight] = [];
 }

@@ -13,6 +13,7 @@ def:pub useRepoGhost() -> dict {
     has bundle: any = None;
     has expanded: bool = True;
     has activeTab: str = "context";
+    has lastRunLabel: str = "Bootstrapping RepoGhost workspace";
     has chatThread: list[dict[str, str]] = [
         {
             "role": "assistant",
@@ -27,14 +28,22 @@ def:pub useRepoGhost() -> dict {
     async def loadBundle() -> None {
         loading = True;
         error = "";
+        lastRunLabel = "Running " + mode + " workflow";
         try {
-            bundle = await run_workflow(repoPath, meetingText, prompt, mode);
+            nextBundle = await run_workflow(repoPath, meetingText, prompt, mode);
+            bundle = nextBundle;
+            lastRunLabel = "Completed " + mode + " workflow";
             chatThread = chatThread + [{
                 "role": "assistant",
-                "content": bundle.action_plan.headline
+                "content": nextBundle.action_plan.headline
             }];
         } except Exception as e {
             error = str(e);
+            lastRunLabel = "Workflow failed";
+            chatThread = chatThread + [{
+                "role": "assistant",
+                "content": "RepoGhost hit an error while processing this run. Review the error banner and try again."
+            }];
         }
         loading = False;
     }
@@ -46,6 +55,7 @@ def:pub useRepoGhost() -> dict {
     async def submit(nextPrompt: str = "") -> None {
         chosen = nextPrompt or draftPrompt;
         if not chosen {
+            error = "Add a prompt before running the workflow.";
             return;
         }
         prompt = chosen;
@@ -68,6 +78,9 @@ def:pub useRepoGhost() -> dict {
 
     def setDraftPrompt(nextPrompt: str) -> None {
         draftPrompt = nextPrompt;
+        if error {
+            error = "";
+        }
     }
 
     def setActiveTab(nextTab: str) -> None {
@@ -77,10 +90,15 @@ def:pub useRepoGhost() -> dict {
     def applyQuickPrompt(nextMode: str, nextPrompt: str) -> None {
         mode = nextMode;
         draftPrompt = nextPrompt;
+        error = "";
     }
 
     def toggleExpanded() -> None {
         expanded = not expanded;
+    }
+
+    def dismissError() -> None {
+        error = "";
     }
 
     def graphNodes() -> list {
@@ -163,6 +181,16 @@ def:pub useRepoGhost() -> dict {
         return [];
     }
 
+    def statusTone() -> str {
+        if error {
+            return "error";
+        }
+        if loading {
+            return "running";
+        }
+        return "ready";
+    }
+
     return {
         "repoPath": repoPath,
         "meetingText": meetingText,
@@ -175,6 +203,8 @@ def:pub useRepoGhost() -> dict {
         "expanded": expanded,
         "activeTab": activeTab,
         "chatThread": chatThread,
+        "lastRunLabel": lastRunLabel,
+        "statusTone": statusTone(),
         "modes": defaultModes(),
         "tabs": defaultTabs(),
         "quickPrompts": quickPrompts(),
@@ -196,6 +226,7 @@ def:pub useRepoGhost() -> dict {
         "setDraftPrompt": setDraftPrompt,
         "setActiveTab": setActiveTab,
         "applyQuickPrompt": applyQuickPrompt,
-        "toggleExpanded": toggleExpanded
+        "toggleExpanded": toggleExpanded,
+        "dismissError": dismissError
     };
 }

@@ -55,3 +55,27 @@ a {
   color: inherit;
   text-decoration: none;
 }
+
+::selection {
+  background: rgba(124, 156, 255, 0.35);
+  color: #f8fbff;
+}
+
+textarea,
+input,
+button {
+  font: inherit;
+}
+
+textarea,
+input {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}

@@ -1,10 +1,12 @@
-def:pub WidgetShell(props: dict = {}) -> any {
+def:pub WidgetShell(**props) -> any {
     bundle = props.bundle;
     mode = props.mode or "feature_plan";
     modes = props.modes or [];
     quickPrompts = props.quickPrompts or [];
     draftPrompt = props.draftPrompt or "";
     loading = props.loading or False;
+    error = props.error or "";
+    lastRunLabel = props.lastRunLabel or "Ready";
     graphNodes = props.graphNodes or [];
     graphEdges = props.graphEdges or [];
     graphFocusPaths = props.graphFocusPaths or [];
@@ -57,14 +59,18 @@ def:pub WidgetShell(props: dict = {}) -> any {
             <div>
                 <div className="text-xs uppercase tracking-[0.28em] text-accent-2">Always-on-top widget</div>
                 <h2 className="mt-2 text-2xl font-semibold text-foreground">RepoGhost</h2>
-                <div className="mt-2 inline-flex rounded-full border border-border bg-panel-soft px-3 py-1 text-xs text-muted">
-                    {("Running staged workflow" if loading else "Stage 3 outputs ready")}
+                <div className={"mt-2 inline-flex rounded-full border px-3 py-1 text-xs " + ("border-danger/40 bg-danger/10 text-foreground" if error else ("border-warning/40 bg-warning/10 text-foreground" if loading else "border-success/30 bg-success/10 text-foreground"))}>
+                    {lastRunLabel}
                 </div>
             </div>
             <button onClick={toggleWorkspace} className="rounded-full border border-border bg-panel-soft px-3 py-2 text-xs text-muted transition hover:border-border-strong hover:text-foreground">
                 Expand
             </button>
         </div>
+
+        {error and (<div className="mt-4 rounded-[1.25rem] border border-danger/40 bg-danger/10 px-3 py-3 text-sm leading-6 text-foreground">
+            RepoGhost could not finish the last run. Update the prompt or repo context and try again.
+        </div>)}
 
         <div className="mt-4 grid grid-cols-4 gap-2 text-center text-xs text-muted">
             <div className="rounded-2xl border border-border bg-panel-soft px-3 py-3">
@@ -82,6 +88,19 @@ def:pub WidgetShell(props: dict = {}) -> any {
             <div className="rounded-2xl border border-border bg-panel-soft px-3 py-3">
                 <div className="text-lg font-semibold text-foreground">{str(len(graphNodes))}</div>
                 <div>Nodes</div>
+            </div>
+        </div>
+
+        <div className="mt-4 rounded-[1.5rem] border border-border bg-panel-soft p-4">
+            <div className="flex items-center justify-between gap-3">
+                <div className="text-xs uppercase tracking-[0.18em] text-muted">Desktop readiness</div>
+                <div className="text-[10px] uppercase tracking-[0.18em] text-accent-2">Tauri path</div>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-muted">
+                <div className="rounded-xl border border-border bg-panel px-3 py-3">Compact widget shell</div>
+                <div className="rounded-xl border border-border bg-panel px-3 py-3">Expanded workspace shell</div>
+                <div className="rounded-xl border border-border bg-panel px-3 py-3">Local-first workflow</div>
+                <div className="rounded-xl border border-border bg-panel px-3 py-3">Always-on-top ready</div>
             </div>
         </div>
 
@@ -111,10 +130,13 @@ def:pub WidgetShell(props: dict = {}) -> any {
         </div>
 
         <div className="mt-4 rounded-[1.5rem] border border-border bg-panel-soft p-4">
-            <div className="text-xs uppercase tracking-[0.18em] text-muted">Quick chat</div>
+            <div className="flex items-center justify-between gap-3">
+                <div className="text-xs uppercase tracking-[0.18em] text-muted">Quick chat</div>
+                <div className="text-[10px] uppercase tracking-[0.18em] text-muted">{("Running" if loading else "Ready")}</div>
+            </div>
             <textarea value={draftPrompt} onChange={updateDraft} className="mt-3 min-h-[110px] w-full rounded-2xl border border-border bg-panel px-3 py-3 text-sm text-foreground outline-none transition placeholder:text-muted focus:border-accent" placeholder="Ask RepoGhost what to work on first, what files are involved, or what blockers it sees..." />
-            <button onClick={runPrompt} className="mt-3 w-full rounded-2xl bg-accent px-4 py-3 text-sm font-semibold text-background transition hover:brightness-110">
-                Run workflow
+            <button onClick={runPrompt} className="mt-3 w-full rounded-2xl bg-accent px-4 py-3 text-sm font-semibold text-background transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60" disabled={loading}>
+                {"Running workflow..." if loading else "Run workflow"}
             </button>
         </div>
 

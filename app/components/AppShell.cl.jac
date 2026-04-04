@@ -1,4 +1,3 @@
-import from ..hooks.useRepoGhost { useRepoGhost }
 import from .WidgetShell { WidgetShell }
 import from .WorkspaceShell { WorkspaceShell }
 
@@ -16,6 +15,10 @@ def:pub AppShell() -> any {
     ticketTitles = state["ticketTitles"];
     handoffActions = state["handoffActions"];
     reviewHotspots = state["reviewHotspots"];
+    statusTone = state["statusTone"];
+    error = state["error"];
+    loading = state["loading"];
+    lastRunLabel = state["lastRunLabel"];
 
     return <div className="mx-auto flex min-h-screen w-full max-w-[1600px] flex-col gap-6 px-4 py-6 lg:px-6">
         <header className="rounded-[2rem] border border-border bg-panel/85 p-5 shadow-[var(--shadow-glow)] backdrop-blur">
@@ -50,7 +53,7 @@ def:pub AppShell() -> any {
                     </div>
                 </div>
             </div>
-            <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_220px]">
                 <div className="rounded-2xl border border-border bg-panel-soft px-4 py-3">
                     <div className="text-[10px] uppercase tracking-[0.18em] text-muted">Action plan</div>
                     <div className="mt-2 text-sm font-medium text-foreground">{bundle.action_plan.first_task if bundle else "Waiting for workflow bundle."}</div>
@@ -63,7 +66,15 @@ def:pub AppShell() -> any {
                     <div className="text-[10px] uppercase tracking-[0.18em] text-muted">Review hotspot</div>
                     <div className="mt-2 text-sm font-medium text-foreground">{reviewHotspots[0] if len(reviewHotspots) > 0 else "No review hotspots yet."}</div>
                 </div>
+                <div className={"rounded-2xl border px-4 py-3 " + ("border-danger/40 bg-danger/10" if statusTone == "error" else ("border-warning/40 bg-warning/10" if loading else "border-success/30 bg-success/10"))}>
+                    <div className="text-[10px] uppercase tracking-[0.18em] text-muted">Run status</div>
+                    <div className="mt-2 text-sm font-medium text-foreground">{lastRunLabel}</div>
+                </div>
             </div>
+            {error and (<div className="mt-4 rounded-2xl border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-foreground">
+                <div className="text-[10px] uppercase tracking-[0.18em] text-danger">Workflow error</div>
+                <div className="mt-2 leading-6">{error}</div>
+            </div>)}
         </header>
 
         <div className="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
@@ -73,7 +84,9 @@ def:pub AppShell() -> any {
                 modes={state["modes"]}
                 quickPrompts={state["quickPrompts"]}
                 draftPrompt={state["draftPrompt"]}
-                loading={state["loading"]}
+                loading={loading}
+                error={error}
+                lastRunLabel={lastRunLabel}
                 graphNodes={graphNodes}
                 graphEdges={graphEdges}
                 graphFocusPaths={state["graphFocusPaths"]}
@@ -95,7 +108,9 @@ def:pub AppShell() -> any {
                 repoPath={state["repoPath"]}
                 meetingText={state["meetingText"]}
                 draftPrompt={state["draftPrompt"]}
-                loading={state["loading"]}
+                loading={loading}
+                error={error}
+                lastRunLabel={lastRunLabel}
                 graphNodes={graphNodes}
                 graphEdges={graphEdges}
                 graphFocusPaths={state["graphFocusPaths"]}

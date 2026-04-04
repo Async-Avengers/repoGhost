@@ -1,4 +1,4 @@
-def:pub WorkspaceShell(props: dict = {}) -> any {
+def:pub WorkspaceShell(**props) -> any {
     bundle = props.bundle;
     tabs = props.tabs or [];
     mode = props.mode or "feature_plan";
@@ -8,6 +8,8 @@ def:pub WorkspaceShell(props: dict = {}) -> any {
     meetingText = props.meetingText or "";
     draftPrompt = props.draftPrompt or "";
     loading = props.loading or False;
+    error = props.error or "";
+    lastRunLabel = props.lastRunLabel or "Ready";
     graphNodes = props.graphNodes or [];
     graphEdges = props.graphEdges or [];
     graphFocusPaths = props.graphFocusPaths or [];
@@ -74,6 +76,14 @@ def:pub WorkspaceShell(props: dict = {}) -> any {
                     for step in trace
                 ]}
             </div>
+            <div className="mt-6 rounded-2xl border border-border bg-panel p-3">
+                <div className="text-[10px] uppercase tracking-[0.18em] text-muted">Desktop notes</div>
+                <div className="mt-2 space-y-2 text-xs leading-5 text-muted">
+                    <div>• Compact widget layout is sized for a floating sidecar window.</div>
+                    <div>• Expanded workspace is ready for a larger desktop shell.</div>
+                    <div>• Local-first inputs keep demo mode usable without auth.</div>
+                </div>
+            </div>
             <div className="mt-6 text-xs uppercase tracking-[0.24em] text-muted">Graph stats</div>
             <div className="mt-3 grid grid-cols-2 gap-2 text-center text-xs text-muted">
                 <div className="rounded-xl border border-border bg-panel px-3 py-3"><div className="text-lg font-semibold text-foreground">{str(len(graphNodes))}</div><div>Nodes</div></div>
@@ -97,8 +107,12 @@ def:pub WorkspaceShell(props: dict = {}) -> any {
                     <div className="text-xs uppercase tracking-[0.24em] text-accent-2">Assistant thread</div>
                     <h3 className="mt-2 text-2xl font-semibold text-foreground">Chat-first engineering workspace</h3>
                 </div>
-                <div className="rounded-full border border-border px-3 py-1 text-xs text-muted">{("Workflow running" if loading else "Final outputs ready")}</div>
+                <div className={"rounded-full border px-3 py-1 text-xs " + ("border-danger/40 bg-danger/10 text-foreground" if error else ("border-warning/40 bg-warning/10 text-foreground" if loading else "border-success/30 bg-success/10 text-foreground"))}>{lastRunLabel}</div>
             </div>
+
+            {error and (<div className="mt-4 rounded-[1.25rem] border border-danger/40 bg-danger/10 px-4 py-3 text-sm leading-6 text-foreground">
+                RepoGhost surfaced an error for the last run. Adjust the repo path, meeting notes, or prompt and run again.
+            </div>)}
 
             <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
                 <div className="rounded-[1.5rem] border border-border bg-panel p-4">
@@ -112,9 +126,12 @@ def:pub WorkspaceShell(props: dict = {}) -> any {
                         ]}
                     </div>
                     <div className="mt-4 rounded-[1.5rem] border border-border bg-panel-soft p-4">
-                        <div className="text-xs uppercase tracking-[0.18em] text-muted">Compose request</div>
+                        <div className="flex items-center justify-between gap-3">
+                            <div className="text-xs uppercase tracking-[0.18em] text-muted">Compose request</div>
+                            <div className="text-[10px] uppercase tracking-[0.18em] text-muted">{("Running" if loading else "Ready")}</div>
+                        </div>
                         <textarea value={draftPrompt} onChange={updatePrompt} className="mt-3 min-h-[120px] w-full rounded-2xl border border-border bg-panel px-3 py-3 text-sm text-foreground outline-none transition placeholder:text-muted focus:border-accent" placeholder="Ask RepoGhost to turn context into tickets, blockers, handoff notes, or review prep..." />
-                        <button onClick={sendPrompt} className="mt-3 rounded-2xl bg-accent px-4 py-3 text-sm font-semibold text-background transition hover:brightness-110">Run workflow</button>
+                        <button onClick={sendPrompt} className="mt-3 rounded-2xl bg-accent px-4 py-3 text-sm font-semibold text-background transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60" disabled={loading}>{"Running workflow..." if loading else "Run workflow"}</button>
                     </div>
                 </div>
 
@@ -419,20 +436,6 @@ def:pub WorkspaceShell(props: dict = {}) -> any {
                                 <div className="mt-2 text-[10px] uppercase tracking-[0.18em] text-accent-2">{item.category + " • " + item.severity}</div>
                             </div>
                             for item in planningTestGaps
-                        ]}</div>
-                    </div>
-                    <div className="rounded-2xl border border-border bg-panel p-4">
-                        <div className="flex items-center justify-between gap-3">
-                            <div className="text-xs uppercase tracking-[0.18em] text-muted">Graph edges</div>
-                            <div className="text-[10px] uppercase tracking-[0.18em] text-accent-2">{str(len(graphEdges))} relationships</div>
-                        </div>
-                        <div className="mt-3 space-y-2">{[
-                            <div key={item.source + item.target + item.kind} className="rounded-xl border border-border bg-panel-soft px-3 py-3">
-                                <div className="text-sm font-medium text-foreground">{item.kind}</div>
-                                <div className="mt-1 text-xs text-muted">{item.source + " → " + item.target}</div>
-                                <div className="mt-2 text-xs text-muted">{item.detail}</div>
-                            </div>
-                            for item in graphEdges[0:10]
                         ]}</div>
                     </div>
                 </div>)}

@@ -87,16 +87,13 @@ jobs:
       - name: jac js — compile frontend
         run: jac js main.jac
 
-      # jac js transpiles Jac → .jac/client/compiled/.
-      # Tauri expects the frontend bundle at .jac/client/dist/ (tauri.conf.json
-      # frontendDist: "../.jac/client/dist"). Copy the compiled output there so
-      # Tauri can find it. The .jac/ tree is gitignored, so this dir won't exist
-      # on a clean CI checkout until we create it here.
-      - name: Move frontend dist into place
+      # jac js transpiles Jac → .jac/client/compiled/. Vite then bundles those
+      # compiled files into .jac/client/dist/ (index.html + hashed JS + CSS),
+      # which is what Tauri's frontendDist points at. The .jac/ tree is
+      # gitignored, so Vite creates the dist/ directory fresh on each CI run.
+      - name: Vite bundle frontend
         shell: bash
-        run: |
-          mkdir -p .jac/client/dist
-          cp -r .jac/client/compiled/. .jac/client/dist/
+        run: cd .jac/client && bunx vite build --config configs/vite.config.js
 
       # jac build already produced .jac/client/dist, so clear beforeBuildCommand
       # in tauri.conf.json to prevent Tauri from trying to re-run the bun script
@@ -186,10 +183,8 @@ jobs:
       - name: jac js — compile frontend
         run: jac js main.jac
 
-      - name: Move frontend dist into place
-        run: |
-          mkdir -p .jac/client/dist
-          cp -r .jac/client/compiled/. .jac/client/dist/
+      - name: Vite bundle frontend
+        run: cd .jac/client && bunx vite build --config configs/vite.config.js
 
       - name: Patch tauri.conf.json — clear beforeBuildCommand
         run: |
@@ -292,10 +287,8 @@ jobs:
       - name: jac js — compile frontend
         run: jac js main.jac
 
-      - name: Move frontend dist into place
-        run: |
-          mkdir -p .jac/client/dist
-          cp -r .jac/client/compiled/. .jac/client/dist/
+      - name: Vite bundle frontend
+        run: cd .jac/client && bunx vite build --config configs/vite.config.js
 
       - name: Patch tauri.conf.json — clear beforeBuildCommand
         run: |

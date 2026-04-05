@@ -100,6 +100,7 @@ jobs:
         run: npm install -g @tauri-apps/cli@latest
 
       - name: Tauri build — Windows NSIS installer
+        shell: bash
         run: NO_STRIP=1 tauri build --bundles nsis
 
       - name: Upload Windows artifact

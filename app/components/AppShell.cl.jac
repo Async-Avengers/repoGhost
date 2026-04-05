@@ -526,12 +526,6 @@ def:pub AppShell() -> JsxElement {
     shellLoading: bool = processingContext or answeringQuery;
     shellClass: str = app_shell_class(themeMode, contrastMode);
     processLabel: str = LOADING_LABELS[_labelTick % len(LOADING_LABELS)];
-    headerIconButtonClass: str = "inline-flex h-10 w-10 items-center justify-center rounded-full border border-border bg-panel/85 text-[16px] text-foreground shadow-sm transition hover:bg-panel-elevated";
-    headerActionButtonClass: str = "inline-flex h-10 items-center justify-center rounded-full border border-border bg-panel/85 px-4 text-[13px] font-medium text-foreground transition hover:bg-panel-elevated";
-    headerSmallButtonClass: str = "inline-flex h-9 w-9 items-center justify-center rounded-full border border-border bg-panel/85 text-[15px] text-foreground shadow-sm transition hover:bg-panel-elevated";
-    settingsPanelClass: str = "col-span-2 w-[220px] justify-self-center rounded-[1.2rem] border border-border bg-panel/92 p-4 shadow-[var(--shadow-glow)]";
-    mobileSettingsPanelClass: str = "w-full rounded-[1.2rem] border border-border bg-panel/92 p-4 shadow-[var(--shadow-glow)] mt-1";
-    modelRows: list[JsxElement] = model_option_rows(modelOptions);
 
     if not setupLoaded {
         return <div className={shellClass}>
@@ -564,130 +558,37 @@ def:pub AppShell() -> JsxElement {
 
     return <div className={shellClass}>
         <div className="mx-auto flex min-h-[calc(100vh-32px)] w-full max-w-[1240px] flex-col items-stretch gap-0">
-
-            <div className="hidden max-[930px]:flex items-center justify-end gap-2 px-1 pb-3 pt-1">
-                <select
-                    value={selectedModel}
-                    onChange={lambda e: Any -> None { update_selected_model(e.target.value); }}
-                    className="h-9 max-w-[140px] rounded-full border border-border bg-panel/85 px-3 text-[12px] font-medium text-foreground outline-none transition focus:border-accent"
-                >
-                    {modelRows}
-                </select>
-                <button onClick={toggle_theme} className={headerSmallButtonClass} title={("Switch to light mode" if themeMode == "dark" else "Switch to dark mode")}>
-                    {("☀" if themeMode == "dark" else "☾")}
-                </button>
-                <button onClick={toggle_contrast} className={headerSmallButtonClass} title={("Enable high contrast" if contrastMode == "standard" else "Use standard contrast")}>
-                    {("◐" if contrastMode == "standard" else "◎")}
-                </button>
-                <button onClick={toggle_settings_editor} className={headerSmallButtonClass} title="API Key">
-                    🔑
-                </button>
-            </div>
-
-            {(
-                <div />
-                if not settingsEditorOpen
-                else <div className="hidden max-[930px]:block mb-3 px-1">
-                    <div className={mobileSettingsPanelClass}>
-                        <div className="space-y-3">
-                            <div>
-                                <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">API Key</div>
-                                <input
-                                    type="password"
-                                    value={userApiKey}
-                                    onChange={lambda e: Any -> None { update_user_api_key(e.target.value); }}
-                                    placeholder="sk-..."
-                                    className="w-full rounded-2xl border border-border bg-panel-soft px-4 py-2.5 text-[13px] text-foreground outline-none placeholder:text-muted focus:border-accent transition-colors"
-                                />
-                            </div>
-                            <div className="flex gap-2">
-                                <button onClick={save_api_settings} className={headerActionButtonClass + " flex-1 justify-center"}>Save</button>
-                                <button onClick={clear_api_settings} className={headerActionButtonClass + " flex-1 justify-center"}>Clear Key</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            <div className="flex flex-wrap items-start justify-center gap-5">
-                <div className="min-w-0 w-[50vw] max-w-[720px] max-[930px]:w-full max-[930px]:max-w-[720px]">
-                    <WidgetShell
-                        bundle={bundle}
-                        runState={runState}
-                        meetingText={meetingText}
-                        contextFileName={contextFileName}
-                        contextLoading={processingContext}
-                        queryLoading={answeringQuery}
-                        loading={shellLoading}
-                        error={error}
-                        activeWidgetTab={activeWidgetTab}
-                        repoPath={repoPath}
-                        ownership={ownershipData}
-                        decisions={decisionsData}
-                        statusMessage={statusMessage}
-                        hasProcessedContext={hasProcessedContext}
-                        followUpPrompt={followUpPrompt}
-                        followUpHistory={followUpHistory}
-                        setRepoPath={update_repo_path}
-                        setMeetingText={update_meeting_text}
-                        setContextFileName={update_context_file_name}
-                        setActiveWidgetTab={update_active_widget_tab}
-                        setFollowUpPrompt={update_follow_up_prompt}
-                        processContext={process_context}
-                        askAboutRun={ask_about_run}
-                        processLabel={processLabel}
-                    />
-                </div>
-
-                <div className="grid w-[240px] shrink-0 grid-cols-2 justify-items-center content-start gap-2 pt-1 max-[930px]:hidden">
-                    <button onClick={toggle_theme} className={headerIconButtonClass + " justify-self-center"} title={("Switch to light mode" if themeMode == "dark" else "Switch to dark mode")}>
-                        {("☀" if themeMode == "dark" else "☾")}
-                    </button>
-                    <button onClick={toggle_contrast} className={headerIconButtonClass + " justify-self-center"} title={("Enable high contrast" if contrastMode == "standard" else "Use standard contrast")}>
-                        {("◐" if contrastMode == "standard" else "◎")}
-                    </button>
-                    <button onClick={toggle_settings_editor} className={headerActionButtonClass + " col-span-2 w-[220px] justify-self-center"}>
-                        Change API Key
-                    </button>
-                    <select
-                        value={selectedModel}
-                        onChange={lambda e: Any -> None { update_selected_model(e.target.value); }}
-                        className="col-span-2 h-10 w-[220px] justify-self-center rounded-full border border-border bg-panel/85 px-4 text-[13px] font-medium text-foreground outline-none transition focus:border-accent"
-                    >
-                        {modelRows}
-                    </select>
-                    {(
-                        <div />
-                        if not settingsEditorOpen
-                        else <div className={settingsPanelClass}>
-                            <div className="space-y-4">
-                                <div>
-                                    <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">API Key</div>
-                                    <input
-                                        type="password"
-                                        value={userApiKey}
-                                        onChange={lambda e: Any -> None { update_user_api_key(e.target.value); }}
-                                        placeholder="sk-..."
-                                        className="w-full rounded-2xl border border-border bg-panel-soft px-4 py-3 text-[12px] text-foreground outline-none placeholder:text-muted focus:border-accent transition-colors"
-                                    />
-                                </div>
-                                <label className="flex items-start gap-3 rounded-2xl border border-border bg-panel-soft px-4 py-3 text-[12px] text-foreground">
-                                    <input
-                                        type="checkbox"
-                                        checked={rememberSettings}
-                                        onChange={lambda e: Any -> None { update_remember_settings(e.target.checked); }}
-                                        className="mt-0.5 h-4 w-4"
-                                    />
-                                    <span>Remember API key and model on this device</span>
-                                </label>
-                                <div className="flex flex-col gap-2">
-                                    <button onClick={save_api_settings} className={headerActionButtonClass}>Save</button>
-                                    <button onClick={clear_api_settings} className={headerActionButtonClass}>Clear Key</button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                </div>
+            <div className="w-full">
+                <WidgetShell
+                    bundle={bundle}
+                    runState={runState}
+                    meetingText={meetingText}
+                    contextFileName={contextFileName}
+                    contextLoading={processingContext}
+                    queryLoading={answeringQuery}
+                    loading={shellLoading}
+                    error={error}
+                    activeWidgetTab={activeWidgetTab}
+                    repoPath={repoPath}
+                    ownership={ownershipData}
+                    decisions={decisionsData}
+                    statusMessage={statusMessage}
+                    hasProcessedContext={hasProcessedContext}
+                    followUpPrompt={followUpPrompt}
+                    followUpHistory={followUpHistory}
+                    setRepoPath={update_repo_path}
+                    setMeetingText={update_meeting_text}
+                    setContextFileName={update_context_file_name}
+                    setActiveWidgetTab={update_active_widget_tab}
+                    setFollowUpPrompt={update_follow_up_prompt}
+                    processContext={process_context}
+                    askAboutRun={ask_about_run}
+                    processLabel={processLabel}
+                    promptNewGhost={prompt_new_ghost}
+                    confirmingNewGhost={confirmingNewGhost}
+                    cancelNewGhost={cancel_new_ghost}
+                    confirmNewGhost={confirm_new_ghost}
+                />
             </div>
         </div>
     </div>;

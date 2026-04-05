@@ -391,7 +391,11 @@ def:pub WidgetShell(
     setFollowUpPrompt: Any = None,
     processContext: Any = None,
     askAboutRun: Any = None,
-    processLabel: str = "Process Context"
+    processLabel: str = "Process Context",
+    promptNewGhost: Any = None,
+    confirmingNewGhost: bool = False,
+    cancelNewGhost: Any = None,
+    confirmNewGhost: Any = None
 ) -> JsxElement {
     files: list[Any] = [];
     blockers: list[Any] = [];
@@ -804,16 +808,62 @@ def:pub WidgetShell(
 
     subtitle: str = "Repo sidecar";
 
+    def do_prompt_new_ghost() -> None {
+        if promptNewGhost {
+            invoke_callback(promptNewGhost);
+        }
+    }
+
+    def do_cancel_new_ghost() -> None {
+        if cancelNewGhost {
+            invoke_callback(cancelNewGhost);
+        }
+    }
+
+    def do_confirm_new_ghost() -> None {
+        if confirmNewGhost {
+            invoke_callback(confirmNewGhost);
+        }
+    }
+
+    destroy_btn: JsxElement = <div />;
+    if confirmingNewGhost {
+        destroy_btn = <div className="flex items-center gap-2">
+            <span className="text-[12px] text-muted">Destroy session?</span>
+            <button
+                onClick={do_confirm_new_ghost}
+                className="inline-flex h-8 items-center justify-center rounded-full bg-danger/80 px-3 text-[12px] font-semibold text-white transition hover:bg-danger"
+            >
+                Yes
+            </button>
+            <button
+                onClick={do_cancel_new_ghost}
+                className="inline-flex h-8 items-center justify-center rounded-full border border-border bg-panel/85 px-3 text-[12px] font-medium text-foreground transition hover:bg-panel-elevated"
+            >
+                No
+            </button>
+        </div>;
+    } else {
+        destroy_btn = <button
+            onClick={do_prompt_new_ghost}
+            className="inline-flex h-8 items-center justify-center rounded-full border border-border/60 bg-panel/60 px-3 text-[12px] font-medium text-muted transition hover:border-danger/50 hover:bg-danger/10 hover:text-danger"
+            title="Destroy session and start over"
+        >
+            Destroy Session
+        </button>;
+    }
+
     return <div className="repoghost-widget flex h-[calc(100vh-32px)] w-full min-w-0 max-w-none flex-col overflow-hidden rounded-[1.7rem] border border-border bg-panel/95 shadow-[var(--shadow-glow)]">
         <div className="border-b border-border px-4 py-3.5">
-            <div className="min-w-0">
-                <div className="flex items-center gap-3">
+            <div className="flex items-center justify-between gap-3 min-w-0">
+                <div className="flex items-center gap-3 min-w-0">
                     <span className="text-[22px]">👻</span>
                     <div className="min-w-0">
                         <div className="text-[18px] font-semibold tracking-tight text-foreground">repoGhost</div>
                         <div className="truncate text-[12px] text-muted">{subtitle}</div>
                     </div>
                 </div>
+                {destroy_btn}
             </div>
         </div>
 

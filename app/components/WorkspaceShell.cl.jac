@@ -98,8 +98,9 @@ def:pub WorkspaceShell(
         }
     }
 
-    chatCards = [];
-    for item in chatThread {
+    chatCards: list[JsxElement] = [];
+    safeThread: list[dict[str, str]] = chatThread or [];
+    for item in safeThread {
         chatCards.append(
             <div key={item["role"] + "-" + str(len(chatCards))} className={chat_bubble_class(item["role"])}>
                 <div className="text-[10px] uppercase tracking-[0.18em] text-muted">{item["role"]}</div>

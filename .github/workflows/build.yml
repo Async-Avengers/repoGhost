@@ -81,12 +81,21 @@ jobs:
       - name: jac install — restore dependencies
         run: jac install
 
-      # jac build --client desktop scaffolds .jac/client/, transpiles Jac to JS,
-      # installs npm deps, and runs the Vite bundle in one step. Output lands at
-      # .jac/client/dist/ which is where Tauri's frontendDist points.
-      - name: jac build — generate and bundle client
+      - name: jac js — transpile client
         shell: bash
-        run: jac build --client desktop
+        run: jac js main.jac
+
+      - name: Debug — list .jac after jac js
+        shell: bash
+        continue-on-error: true
+        run: find .jac -type f | head -50
+
+      - name: Vite bundle frontend
+        shell: bash
+        run: |
+          cp .jac/client/configs/package.json .jac/client/package.json
+          cd .jac/client && bun install
+          cd .jac/client && node_modules/.bin/vite build --config configs/vite.config.js
 
       # Clear beforeBuildCommand so Tauri does not try to re-run the bun script. .jac/client/dist, so clear beforeBuildCommand
       # in tauri.conf.json to prevent Tauri from trying to re-run the bun script
@@ -170,8 +179,18 @@ jobs:
       - name: jac install — restore dependencies
         run: jac install
 
-      - name: jac build — generate and bundle client
-        run: jac build --client desktop
+      - name: jac js — transpile client
+        run: jac js main.jac
+
+      - name: Debug — list .jac after jac js
+        continue-on-error: true
+        run: find .jac -type f | head -50
+
+      - name: Vite bundle frontend
+        run: |
+          cp .jac/client/configs/package.json .jac/client/package.json
+          cd .jac/client && bun install
+          cd .jac/client && node_modules/.bin/vite build --config configs/vite.config.js
 
       - name: Patch tauri.conf.json — clear beforeBuildCommand
         run: |
@@ -268,8 +287,18 @@ jobs:
       - name: jac install — restore dependencies
         run: jac install
 
-      - name: jac build — generate and bundle client
-        run: jac build --client desktop
+      - name: jac js — transpile client
+        run: jac js main.jac
+
+      - name: Debug — list .jac after jac js
+        continue-on-error: true
+        run: find .jac -type f | head -50
+
+      - name: Vite bundle frontend
+        run: |
+          cp .jac/client/configs/package.json .jac/client/package.json
+          cd .jac/client && bun install
+          cd .jac/client && node_modules/.bin/vite build --config configs/vite.config.js
 
       - name: Patch tauri.conf.json — clear beforeBuildCommand
         run: |

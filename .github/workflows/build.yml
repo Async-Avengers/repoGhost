@@ -97,10 +97,10 @@ jobs:
 
       - name: Install Tauri CLI (cargo)
         shell: bash
-        run: cargo install tauri-cli --locked
+        run: npm install -g @tauri-apps/cli@latest
 
       - name: Tauri build — Windows NSIS installer
-        run: NO_STRIP=1 cargo tauri build --bundles nsis
+        run: NO_STRIP=1 tauri build --bundles nsis
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
@@ -177,7 +177,7 @@ jobs:
         run: echo "tauri.conf.json patch skipped — jac start handles client build"
 
       - name: Install Tauri CLI (cargo)
-        run: cargo install tauri-cli --locked
+        run: npm install -g @tauri-apps/cli@latest
 
       - name: Tauri build — macOS DMG
         # APPLE_SIGNING_IDENTITY is intentionally unset here so Tauri produces
@@ -185,7 +185,7 @@ jobs:
         # For notarised release builds, add APPLE_ID / APPLE_PASSWORD /
         # APPLE_TEAM_ID / APPLE_CERTIFICATE as repository secrets and export
         # them here.
-        run: NO_STRIP=1 cargo tauri build --bundles dmg
+        run: NO_STRIP=1 tauri build --bundles dmg
 
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
@@ -274,10 +274,10 @@ jobs:
         run: echo "tauri.conf.json patch skipped — jac start handles client build"
 
       - name: Install Tauri CLI (cargo)
-        run: cargo install tauri-cli --locked
+        run: npm install -g @tauri-apps/cli@latest
 
       - name: Tauri build — Linux AppImage
-        run: NO_STRIP=1 cargo tauri build --bundles appimage
+        run: NO_STRIP=1 tauri build --bundles appimage
 
       - name: Upload Linux artifact
         uses: actions/upload-artifact@v4

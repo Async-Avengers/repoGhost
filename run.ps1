@@ -1,0 +1,34 @@
+# RepoGhost local launcher (Windows)
+# Builds the frontend if needed, starts the jac server, and opens the app in a browser.
+$ErrorActionPreference = "Stop"
+Set-Location $PSScriptRoot
+
+$JAC = "$env:APPDATA\uv\tools\jaclang\Scripts\jac.exe"
+$APP_URL = "http://localhost:8001/static/index.html"
+
+# Build the frontend if dist/index.html is missing
+if (-not (Test-Path ".jac\client\dist\index.html")) {
+    Write-Host "[run.ps1] Building frontend..."
+    Push-Location ".jac\client"
+    & "node_modules\.bin\vite.cmd" build --config configs/vite.config.js
+    Pop-Location
+}
+
+Write-Host "[run.ps1] Starting RepoGhost..."
+Write-Host "[run.ps1] App will be available at: $APP_URL"
+
+# Start jac server in background
+$server = Start-Process -FilePath $JAC -ArgumentList "start", "main.jac" -PassThru -NoNewWindow
+
+# Give it a moment then open the browser
+Start-Sleep -Seconds 2
+Start-Process $APP_URL
+
+# Wait for server (Ctrl+C to stop)
+try {
+    $server.WaitForExit()
+} finally {
+    if (-not $server.HasExited) {
+        $server.Kill()
+    }
+}

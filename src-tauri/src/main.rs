@@ -2,6 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::net::TcpStream;
+use std::path::Path;
 use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
@@ -12,18 +13,68 @@ const APP_URL: &str = "http://127.0.0.1:8001/static/index.html";
 
 static SIDECAR: Mutex<Option<Child>> = Mutex::new(None);
 
-/// Walk up from the running executable to find the directory containing main.jac.
-fn find_project_dir() -> Option<std::path::PathBuf> {
-    let exe = std::env::current_exe().ok()?;
-    let mut dir = exe.parent()?.to_path_buf();
-    loop {
-        if dir.join("main.jac").exists() {
-            return Some(dir);
-        }
-        if !dir.pop() {
-            return None;
+/// Recursively copy a directory tree from src to dst, overwriting existing files.
+fn copy_dir_all(src: &Path, dst: &Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(dst)?;
+    for entry in std::fs::read_dir(src)? {
+        let entry = entry?;
+        let ty = entry.file_type()?;
+        let dst_path = dst.join(entry.file_name());
+        if ty.is_dir() {
+            copy_dir_all(&entry.path(), &dst_path)?;
+        } else {
+            std::fs::copy(entry.path(), &dst_path)?;
         }
     }
+    Ok(())
+}
+
+/// Copy bundled project files from resource_dir to app_data_dir so jac has a
+/// writable working directory (jac writes .jac/cache/ and .jac/data/ alongside
+/// main.jac). Existing user data in .jac/data/ is never touched.
+fn setup_project_dir(resource_dir: &Path, app_data_dir: &Path) {
+    if let Err(e) = std::fs::create_dir_all(app_data_dir) {
+        eprintln!("[setup] failed to create app_data_dir {app_data_dir:?}: {e}");
+        return;
+    }
+
+    // Copy individual source files.
+    for name in &["main.jac", "jac.toml"] {
+        let src = resource_dir.join(name);
+        let dst = app_data_dir.join(name);
+        if src.exists() {
+            if let Err(e) = std::fs::copy(&src, &dst) {
+                eprintln!("[setup] copy {name} failed: {e}");
+            }
+        } else {
+            eprintln!("[setup] resource missing: {src:?}");
+        }
+    }
+
+    // Copy app/ directory tree (Jac server-side modules).
+    let src_app = resource_dir.join("app");
+    if src_app.exists() {
+        if let Err(e) = copy_dir_all(&src_app, &app_data_dir.join("app")) {
+            eprintln!("[setup] copy app/ failed: {e}");
+        }
+    } else {
+        eprintln!("[setup] resource missing: {src_app:?}");
+    }
+
+    // Copy frontend dist (.jac/client/dist/).
+    // We copy only dist/, never touching .jac/data/ or .jac/cache/ so that
+    // the user's persistent graph storage is preserved across updates.
+    let src_dist = resource_dir.join(".jac/client/dist");
+    if src_dist.exists() {
+        let dst_dist = app_data_dir.join(".jac/client/dist");
+        if let Err(e) = copy_dir_all(&src_dist, &dst_dist) {
+            eprintln!("[setup] copy frontend dist failed: {e}");
+        }
+    } else {
+        eprintln!("[setup] resource missing: {src_dist:?}");
+    }
+
+    eprintln!("[setup] project files ready at {app_data_dir:?}");
 }
 
 /// Block until port 8001 accepts a TCP connection or the timeout elapses.
@@ -43,8 +94,22 @@ fn wait_for_server(timeout: Duration) -> bool {
 fn start_sidecar(app: &tauri::AppHandle) {
     let resource_dir = match app.path().resource_dir() {
         Ok(d) => d,
-        Err(e) => { eprintln!("[sidecar] resource_dir error: {e}"); return; }
+        Err(e) => {
+            eprintln!("[sidecar] resource_dir error: {e}");
+            return;
+        }
     };
+
+    let app_data_dir = match app.path().app_data_dir() {
+        Ok(d) => d,
+        Err(e) => {
+            eprintln!("[sidecar] app_data_dir error: {e}");
+            return;
+        }
+    };
+
+    // Extract bundled project files to a writable directory.
+    setup_project_dir(&resource_dir, &app_data_dir);
 
     let script = if cfg!(windows) {
         resource_dir.join("binaries/jac-sidecar.bat")
@@ -57,10 +122,7 @@ fn start_sidecar(app: &tauri::AppHandle) {
         return;
     }
 
-    let project_dir = find_project_dir()
-        .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
-
-    eprintln!("[sidecar] project dir: {project_dir:?}");
+    eprintln!("[sidecar] project dir: {app_data_dir:?}");
 
     let mut cmd = if cfg!(windows) {
         let mut c = Command::new("cmd");
@@ -71,7 +133,7 @@ fn start_sidecar(app: &tauri::AppHandle) {
         c.arg(&script);
         c
     };
-    cmd.arg(&project_dir)
+    cmd.arg(&app_data_dir)
         .stdout(Stdio::null())
         .stderr(Stdio::inherit());
 

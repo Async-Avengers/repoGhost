@@ -1,0 +1,10 @@
+services:
+  repoghost:
+    image: ghcr.io/async-avengers/repoghost:latest
+    ports:
+      - "8000:8000"
+      - "8001:8001"
+    # Comment volumes out if you want to hide your home folder from the container
+    volumes:
+      - "/home:/home"
+    restart: unless-stopped

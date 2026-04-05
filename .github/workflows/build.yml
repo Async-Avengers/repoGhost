@@ -85,7 +85,12 @@ jobs:
         run: jac install
 
       - name: jac js — compile frontend
-        run: jac js main.jac || true
+        run: jac js main.jac
+
+      - name: Debug — show jac js output
+        shell: bash
+        continue-on-error: true
+        run: echo "=== repo root ===" && ls -la && echo "=== .jac dir ===" && ls -la .jac || echo ".jac missing" && echo "=== .jac/client ===" && ls -la .jac/client || echo ".jac/client missing"
 
       # jac js transpiles Jac → .jac/client/compiled/ and generates
       # .jac/client/configs/vite.config.js + configs/package.json. The .jac/
@@ -95,6 +100,7 @@ jobs:
       # writes the final index.html + JS + CSS to .jac/client/dist/ — the path
       # Tauri's frontendDist expects.
       - name: Vite bundle frontend
+        continue-on-error: true
         shell: bash
         run: |
           echo "=== repo root ==="
@@ -188,9 +194,14 @@ jobs:
         run: jac install
 
       - name: jac js — compile frontend
-        run: jac js main.jac || true
+        run: jac js main.jac
+
+      - name: Debug — show jac js output
+        continue-on-error: true
+        run: echo "=== repo root ===" && ls -la && echo "=== .jac dir ===" && ls -la .jac || echo ".jac missing" && echo "=== .jac/client ===" && ls -la .jac/client || echo ".jac/client missing"
 
       - name: Vite bundle frontend
+        continue-on-error: true
         run: |
           echo "=== repo root ==="
           ls -la
@@ -296,9 +307,14 @@ jobs:
         run: jac install
 
       - name: jac js — compile frontend
-        run: jac js main.jac || true
+        run: jac js main.jac
+
+      - name: Debug — show jac js output
+        continue-on-error: true
+        run: echo "=== repo root ===" && ls -la && echo "=== .jac dir ===" && ls -la .jac || echo ".jac missing" && echo "=== .jac/client ===" && ls -la .jac/client || echo ".jac/client missing"
 
       - name: Vite bundle frontend
+        continue-on-error: true
         run: |
           echo "=== repo root ==="
           ls -la

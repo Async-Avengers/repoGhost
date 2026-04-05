@@ -95,6 +95,10 @@ jobs:
         shell: bash
         run: echo "tauri.conf.json patch skipped — jac start handles client build"
 
+      - name: Install Tauri CLI (cargo)
+        shell: bash
+        run: cargo install tauri-cli --locked
+
       - name: Tauri build — Windows NSIS installer
         run: NO_STRIP=1 cargo tauri build --bundles nsis
 
@@ -171,6 +175,9 @@ jobs:
 
       - name: Patch tauri.conf.json — clear beforeBuildCommand
         run: echo "tauri.conf.json patch skipped — jac start handles client build"
+
+      - name: Install Tauri CLI (cargo)
+        run: cargo install tauri-cli --locked
 
       - name: Tauri build — macOS DMG
         # APPLE_SIGNING_IDENTITY is intentionally unset here so Tauri produces
@@ -265,6 +272,9 @@ jobs:
 
       - name: Patch tauri.conf.json — clear beforeBuildCommand
         run: echo "tauri.conf.json patch skipped — jac start handles client build"
+
+      - name: Install Tauri CLI (cargo)
+        run: cargo install tauri-cli --locked
 
       - name: Tauri build — Linux AppImage
         run: NO_STRIP=1 cargo tauri build --bundles appimage

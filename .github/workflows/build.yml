@@ -1,0 +1,342 @@
+name: Build & Release RepoGhost
+
+# Triggers: every push to main, plus any version tag (v1.2.3, v0.1.0-rc1, …)
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+
+# Cancel any in-flight run for the same branch or tag before starting a new one.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# ─── Shared env ──────────────────────────────────────────────────────────────
+env:
+  # Keeps Cargo from printing thousands of lines of download progress.
+  CARGO_TERM_COLOR: always
+  # Tauri 2 reads this to skip interactive prompts in CI.
+  CI: true
+
+# ─── Build jobs (run in parallel) ────────────────────────────────────────────
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Windows — NSIS .exe installer
+  # ---------------------------------------------------------------------------
+  build-windows:
+    name: Build · Windows
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Set up Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust build cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Set up Bun (frontend toolchain)
+        uses: oven-sh/setup-bun@v2
+
+      # Read optional `jac-version` from jac.toml [project].
+      # Falls back to "latest" so the step is a no-op when the key is absent.
+      - name: Resolve Jac version
+        id: jac
+        shell: bash
+        run: |
+          version=$(python -c "
+          try:
+              import tomllib
+          except ImportError:
+              try:
+                  import tomli as tomllib
+              except ImportError:
+                  tomllib = None
+          if tomllib:
+              with open('jac.toml', 'rb') as f:
+                  d = tomllib.load(f)
+              print(d.get('project', {}).get('jac-version', ''))
+          " 2>/dev/null || true)
+          echo "pin=${version:-latest}" >> "$GITHUB_OUTPUT"
+
+      - name: Install Jac toolchain
+        shell: bash
+        run: |
+          if [ "${{ steps.jac.outputs.pin }}" = "latest" ]; then
+            pip install jaclang
+          else
+            pip install "jaclang==${{ steps.jac.outputs.pin }}"
+          fi
+
+      - name: Install Tauri CLI (latest stable)
+        run: npm install -g @tauri-apps/cli@latest
+
+      - name: jac install — restore dependencies
+        run: jac install
+
+      - name: jac build — compile frontend + backend
+        run: jac build
+
+      # jac build already produced .jac/client/dist, so clear beforeBuildCommand
+      # in tauri.conf.json to prevent Tauri from trying to re-run the bun script
+      # (there is no root-level package.json in this repo).
+      - name: Patch tauri.conf.json — clear beforeBuildCommand
+        shell: bash
+        run: |
+          python -c "
+          import json
+          path = 'src-tauri/tauri.conf.json'
+          with open(path) as f:
+              cfg = json.load(f)
+          cfg.setdefault('build', {})['beforeBuildCommand'] = ''
+          with open(path, 'w') as f:
+              json.dump(cfg, f, indent=2)
+          "
+
+      - name: Tauri build — Windows NSIS installer
+        run: tauri build --bundles nsis
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: repoghost-windows
+          path: src-tauri/target/release/bundle/nsis/*.exe
+          if-no-files-found: error
+
+  # ---------------------------------------------------------------------------
+  # macOS — .dmg disk image
+  # ---------------------------------------------------------------------------
+  build-macos:
+    name: Build · macOS
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Set up Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust build cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Set up Bun (frontend toolchain)
+        uses: oven-sh/setup-bun@v2
+
+      - name: Resolve Jac version
+        id: jac
+        run: |
+          version=$(python3 -c "
+          try:
+              import tomllib
+          except ImportError:
+              try:
+                  import tomli as tomllib
+              except ImportError:
+                  tomllib = None
+          if tomllib:
+              with open('jac.toml', 'rb') as f:
+                  d = tomllib.load(f)
+              print(d.get('project', {}).get('jac-version', ''))
+          " 2>/dev/null || true)
+          echo "pin=${version:-latest}" >> "$GITHUB_OUTPUT"
+
+      - name: Install Jac toolchain
+        run: |
+          if [ "${{ steps.jac.outputs.pin }}" = "latest" ]; then
+            pip3 install jaclang
+          else
+            pip3 install "jaclang==${{ steps.jac.outputs.pin }}"
+          fi
+
+      - name: Install Tauri CLI (latest stable)
+        run: npm install -g @tauri-apps/cli@latest
+
+      - name: jac install — restore dependencies
+        run: jac install
+
+      - name: jac build — compile frontend + backend
+        run: jac build
+
+      - name: Patch tauri.conf.json — clear beforeBuildCommand
+        run: |
+          python3 -c "
+          import json
+          path = 'src-tauri/tauri.conf.json'
+          with open(path) as f:
+              cfg = json.load(f)
+          cfg.setdefault('build', {})['beforeBuildCommand'] = ''
+          with open(path, 'w') as f:
+              json.dump(cfg, f, indent=2)
+          "
+
+      - name: Tauri build — macOS DMG
+        # APPLE_SIGNING_IDENTITY is intentionally unset here so Tauri produces
+        # an ad-hoc-signed (unsigned) DMG suitable for testing.
+        # For notarised release builds, add APPLE_ID / APPLE_PASSWORD /
+        # APPLE_TEAM_ID / APPLE_CERTIFICATE as repository secrets and export
+        # them here.
+        run: tauri build --bundles dmg
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: repoghost-macos
+          path: src-tauri/target/release/bundle/dmg/*.dmg
+          if-no-files-found: error
+
+  # ---------------------------------------------------------------------------
+  # Linux — .AppImage
+  # ---------------------------------------------------------------------------
+  build-linux:
+    name: Build · Linux
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Set up Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust build cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Set up Bun (frontend toolchain)
+        uses: oven-sh/setup-bun@v2
+
+      # Tauri on Linux requires WebKit2GTK, AppIndicator, and a few packaging
+      # tools. libfuse2 is required to run/build AppImages on the runner.
+      - name: Install Linux system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libfuse2
+
+      - name: Resolve Jac version
+        id: jac
+        run: |
+          version=$(python3 -c "
+          try:
+              import tomllib
+          except ImportError:
+              try:
+                  import tomli as tomllib
+              except ImportError:
+                  tomllib = None
+          if tomllib:
+              with open('jac.toml', 'rb') as f:
+                  d = tomllib.load(f)
+              print(d.get('project', {}).get('jac-version', ''))
+          " 2>/dev/null || true)
+          echo "pin=${version:-latest}" >> "$GITHUB_OUTPUT"
+
+      - name: Install Jac toolchain
+        run: |
+          if [ "${{ steps.jac.outputs.pin }}" = "latest" ]; then
+            pip3 install jaclang
+          else
+            pip3 install "jaclang==${{ steps.jac.outputs.pin }}"
+          fi
+
+      - name: Install Tauri CLI (latest stable)
+        run: npm install -g @tauri-apps/cli@latest
+
+      - name: jac install — restore dependencies
+        run: jac install
+
+      - name: jac build — compile frontend + backend
+        run: jac build
+
+      - name: Patch tauri.conf.json — clear beforeBuildCommand
+        run: |
+          python3 -c "
+          import json
+          path = 'src-tauri/tauri.conf.json'
+          with open(path) as f:
+              cfg = json.load(f)
+          cfg.setdefault('build', {})['beforeBuildCommand'] = ''
+          with open(path, 'w') as f:
+              json.dump(cfg, f, indent=2)
+          "
+
+      - name: Tauri build — Linux AppImage
+        run: tauri build --bundles appimage
+
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: repoghost-linux
+          path: src-tauri/target/release/bundle/appimage/*.AppImage
+          if-no-files-found: error
+
+  # ─── Release job ───────────────────────────────────────────────────────────
+  # Runs only on version tags. Downloads all three artifacts and creates a
+  # GitHub Release with auto-generated notes.
+  # ---------------------------------------------------------------------------
+  release:
+    name: Release
+    needs: [build-windows, build-macos, build-linux]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    permissions:
+      contents: write   # required to create a GitHub Release
+
+    steps:
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: repoghost-windows
+          path: dist/windows
+
+      - name: Download macOS artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: repoghost-macos
+          path: dist/macos
+
+      - name: Download Linux artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: repoghost-linux
+          path: dist/linux
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          # Tag name comes from the ref that triggered the workflow (e.g. v0.2.0).
+          # softprops/action-gh-release reads GITHUB_REF automatically.
+          generate_release_notes: true
+          files: |
+            dist/windows/*.exe
+            dist/macos/*.dmg
+            dist/linux/*.AppImage

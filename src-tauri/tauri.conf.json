@@ -27,6 +27,7 @@
     "externalBin": [],
     "resources": [
       "binaries/jac-sidecar.sh",
+      "binaries/jac-sidecar.bat",
       "../main.jac",
       "../jac.toml",
       "../app/**/*",

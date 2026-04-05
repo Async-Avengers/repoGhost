@@ -88,8 +88,9 @@ jobs:
         shell: bash
         run: |
           jac start main.jac &
-          sleep 30
+          sleep 60
           kill %1
+          test -f .jac/client/dist/index.html || (echo "ERROR: dist not built" && exit 1)
 
       - name: Patch tauri.conf.json — clear beforeBuildCommand
         shell: bash
@@ -171,8 +172,9 @@ jobs:
       - name: jac start — scaffold client
         run: |
           jac start main.jac &
-          sleep 30
+          sleep 60
           kill %1
+          test -f .jac/client/dist/index.html || (echo "ERROR: dist not built" && exit 1)
 
       - name: Patch tauri.conf.json — clear beforeBuildCommand
         run: echo "tauri.conf.json patch skipped — jac start handles client build"
@@ -268,8 +270,9 @@ jobs:
       - name: jac start — scaffold client
         run: |
           jac start main.jac &
-          sleep 30
+          sleep 60
           kill %1
+          test -f .jac/client/dist/index.html || (echo "ERROR: dist not built" && exit 1)
 
       - name: Patch tauri.conf.json — clear beforeBuildCommand
         run: echo "tauri.conf.json patch skipped — jac start handles client build"

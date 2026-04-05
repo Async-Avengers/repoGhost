@@ -1,3 +1,4 @@
+import from app.services.llm_runtime { llm }
 import from app.models.core { FileMatch, MeetingSummary }
 import from app.models.workflow { WorkflowRequest, ExecutionPlanningContext }
 import from app.models.outputs { ActionPlan, TaskItem }
@@ -12,6 +13,168 @@ def collect_dependencies(planning: ExecutionPlanningContext) -> list[str] {
         deps = ["repo access", "meeting context", "planning context"];
     }
     return deps;
+}
+
+def short_task_text(text: str) -> str {
+    trimmed: str = text.strip();
+    return trimmed;
+}
+
+def replace_text(text: str, old: str, new_text: str) -> str {
+    return text.replace(old, new_text);
+}
+
+def lower_text(text: str) -> str {
+    return text.lower();
+}
+
+def split_once(text: str, token: str) -> list[str] {
+    return text.split(token, 1);
+}
+
+def clean_transcript_phrase(text: str) -> str {
+    cleaned: str = short_task_text(text);
+    if ":" in cleaned {
+        parts: list[str] = split_once(cleaned, ":");
+        if len(parts) > 1 and len(parts[0]) <= 28 {
+            cleaned = short_task_text(parts[1]);
+        }
+    }
+    prefixes: list[str] = [
+        "immediate next steps include ",
+        "next steps include ",
+        "the main goal for this meeting is to ",
+        "the team discussed ",
+        "the team should ",
+        "we should ",
+        "we need to ",
+        "need to ",
+        "let's ",
+        "please ",
+        "todo ",
+        "action item ",
+        "next step "
+    ];
+    lowered: str = lower_text(cleaned);
+    for prefix in prefixes {
+        if lowered.startswith(prefix) {
+            cleaned = short_task_text(cleaned[len(prefix):]);
+            lowered = lower_text(cleaned);
+        }
+    }
+    while cleaned.endswith(".") or cleaned.endswith(",") or cleaned.endswith(";") {
+        cleaned = cleaned[:len(cleaned) - 1];
+    }
+    return short_task_text(cleaned);
+}
+
+def expanded_action_phrases(action_items: list[str]) -> list[str] {
+    phrases: list[str] = [];
+    seen: list[str] = [];
+    for item in action_items {
+        normalized: str = clean_transcript_phrase(item);
+        if not normalized {
+            continue;
+        }
+        expanded: str = normalized;
+        if "," in expanded {
+            expanded = replace_text(expanded, ", and ", ", ");
+            expanded = replace_text(expanded, " and ", ", ");
+        }
+        for part in expanded.split(",") {
+            phrase: str = clean_transcript_phrase(part);
+            lowered: str = lower_text(phrase);
+            if len(phrase) < 4 {
+                continue;
+            }
+            if lowered in seen {
+                continue;
+            }
+            if lowered.startswith("ensure ") and len(phrases) > 0 {
+                continue;
+            }
+            if "main goal for this meeting" in lowered or "the team discussed" in lowered {
+                continue;
+            }
+            phrases.append(phrase);
+            seen.append(lowered);
+            if len(phrases) >= 6 {
+                return phrases;
+            }
+        }
+    }
+    return phrases;
+}
+
+def capitalize_first(text: str) -> str {
+    if not text {
+        return "";
+    }
+    return text.capitalize();
+}
+
+def normalized_task_title(text: str) -> str {
+    title: str = clean_transcript_phrase(text);
+    replacements: list[list[str]] = [
+        ["finalizing ", "Finalize "],
+        ["cleaning up ", "Clean up "],
+        ["validating ", "Validate "],
+        ["improving ", "Improve "],
+        ["conducting ", "Conduct "],
+        ["reviewing ", "Review "],
+        ["preparing ", "Prepare "],
+        ["updating ", "Update "],
+        ["adding ", "Add "],
+        ["fixing ", "Fix "],
+        ["confirming ", "Confirm "],
+        ["locking in ", "Lock in "],
+        ["stabilizing ", "Stabilize "]
+    ];
+    lowered: str = lower_text(title);
+    for pair in replacements {
+        prefix: str = pair[0];
+        next_prefix: str = pair[1];
+        if lowered.startswith(prefix) {
+            title = next_prefix + title[len(prefix):];
+            return short_task_text(title);
+        }
+    }
+    return capitalize_first(title);
+}
+
+def task_summary_text(focus: str, file_slice: list[str], has_blockers: bool) -> str {
+    area_hint: str = focus if focus else "the current repo surface";
+    file_hint: str = file_slice[0] if len(file_slice) > 0 else "";
+    summary: str = "Scope this workstream in " + area_hint;
+    if file_hint {
+        summary = summary + ", starting with " + file_hint;
+    }
+    summary = summary + ", and leave it ready for validation.";
+    if has_blockers {
+        summary = summary + " Resolve the linked blocker before widening the slice.";
+    }
+    return summary;
+}
+
+def task_file_slice(files: list[FileMatch], offset: int, size: int = 2) -> list[str] {
+    picked: list[str] = [];
+    for item in files[offset:] {
+        if len(picked) >= size {
+            break;
+        }
+        picked.append(item.path);
+    }
+    return picked;
+}
+
+def task_focus_label(planning: ExecutionPlanningContext, files: list[FileMatch], index: int = 0) -> str {
+    if len(planning.resolved_areas) > index {
+        return planning.resolved_areas[index];
+    }
+    if len(files) > index {
+        return files[index].path;
+    }
+    return "the current repo surface";
 }
 
 def plan_headline(request: WorkflowRequest, files: list[FileMatch]) -> str {
@@ -73,19 +236,29 @@ def:pub build_action_tasks(request: WorkflowRequest, planning: ExecutionPlanning
         likely_files.append(item.path);
     }
 
-    if meeting and len(meeting.action_items) > 0 {
+    action_phrases: list[str] = [];
+    if meeting {
+        action_phrases = expanded_action_phrases(meeting.action_items);
+    }
+
+    if len(action_phrases) > 0 {
         tasks: list[TaskItem] = [];
-        for action in meeting.action_items {
+        action_index: int = 0;
+        for action in action_phrases {
             if len(tasks) >= 6 {
                 break;
             }
+            focus: str = task_focus_label(planning, files, action_index);
+            file_slice: list[str] = task_file_slice(files, action_index, 2);
+            title: str = normalized_task_title(action);
             tasks.append(TaskItem(
-                title=action,
-                summary="Action item extracted from meeting context.",
-                phase="Execution",
-                dependencies=[],
-                likely_files=likely_files
+                title=title,
+                summary=task_summary_text(focus, file_slice, action_index == 0 and len(planning.blocker_titles) > 0),
+                phase=("Execution Slice " + str(action_index + 1)),
+                dependencies=(planning.blocker_titles[0:2] if action_index == 0 else []),
+                likely_files=(file_slice if len(file_slice) > 0 else likely_files)
             ));
+            action_index = action_index + 1;
         }
         return tasks;
     }
@@ -93,25 +266,32 @@ def:pub build_action_tasks(request: WorkflowRequest, planning: ExecutionPlanning
     deps = collect_dependencies(planning);
     tasks: list[TaskItem] = [
         TaskItem(
-            title="Confirm execution boundary",
-            summary="Use resolved areas and graph focus paths to lock the scope before implementation starts.",
+            title="Lock the primary implementation boundary",
+            summary="Pin down the highest-signal repo surface, confirm the main files, and keep the first workstream tightly scoped.",
             phase="Phase A",
             dependencies=deps,
-            likely_files=planning.resolved_areas[0:4]
+            likely_files=(task_file_slice(files, 0, 3) if len(files) > 0 else planning.resolved_areas[0:4])
         ),
         TaskItem(
-            title="Address blocker and dependency risks",
-            summary="Resolve missing requirements, contracts, and downstream dependencies surfaced by Stage 2.",
+            title="Deliver the next project workstream",
+            summary="Turn the planning context into a concrete product-facing slice with repo-grounded changes and validation hooks.",
             phase="Phase B",
             dependencies=planning.blocker_titles[0:4],
+            likely_files=(task_file_slice(files, 1, 3) if len(files) > 1 else likely_files)
+        ),
+        TaskItem(
+            title="Resolve blockers and validation gaps",
+            summary="Close dependency risks, tighten confidence around the riskiest paths, and cover the surfaced test gaps before handoff.",
+            phase="Phase C",
+            dependencies=(planning.blocker_titles[0:3] if len(planning.blocker_titles) > 0 else ["scoped change set", "risk review"]),
             likely_files=likely_files
         ),
         TaskItem(
-            title="Implement and validate changes",
-            summary="Execute the work in the highest-signal files and cover the riskiest paths with tests.",
-            phase="Phase C",
-            dependencies=["confirmed scope", "risk review"],
-            likely_files=likely_files
+            title="Package the run for handoff",
+            summary="Align tickets, handoff notes, and review guidance so the current slice is easy to continue without rereading the full transcript.",
+            phase="Phase D",
+            dependencies=["implemented changes", "validated risk hotspots"],
+            likely_files=task_file_slice(files, 0, 2)
         )
     ];
     if request.mode == "meeting_to_tickets" {
@@ -120,3 +300,18 @@ def:pub build_action_tasks(request: WorkflowRequest, planning: ExecutionPlanning
     }
     return tasks;
 }
+
+def:pub llm_action_plan(
+    _request: WorkflowRequest,
+    _planning: ExecutionPlanningContext,
+    _files: list[FileMatch],
+    _draft: ActionPlan
+) -> ActionPlan by llm();
+
+def:pub llm_action_tasks(
+    _request: WorkflowRequest,
+    _planning: ExecutionPlanningContext,
+    _files: list[FileMatch],
+    _meeting: MeetingSummary,
+    _draft: list[TaskItem]
+) -> list[TaskItem] by llm();

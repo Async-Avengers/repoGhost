@@ -1,15 +1,15 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap");
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --color-background: #07111f;
-  --color-foreground: #e6edf7;
-  --color-panel: #0d1728;
-  --color-panel-elevated: #111f35;
-  --color-panel-soft: #0a1424;
-  --color-border: #22324d;
-  --color-border-strong: #35507a;
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --color-background: #050c17;
+  --color-foreground: #edf3ff;
+  --color-panel: #0b1423;
+  --color-panel-elevated: #101b2f;
+  --color-panel-soft: #08111f;
+  --color-border: #1f2d45;
+  --color-border-strong: #3a5684;
   --color-accent: #7c9cff;
   --color-accent-2: #4de2c5;
   --color-muted: #8ea3c2;
@@ -22,26 +22,16 @@
   --radius-2xl: 1.75rem;
 }
 
-.dark {
-  --color-background: #050c17;
-  --color-foreground: #edf3ff;
-  --color-panel: #0b1423;
-  --color-panel-elevated: #101b2f;
-  --color-panel-soft: #08111f;
-  --color-border: #1f2d45;
-  --color-border-strong: #3a5684;
-}
-
-html, body, #root {
+html,
+body,
+#root,
+#__jac_root {
   min-height: 100vh;
 }
 
 body {
   margin: 0;
-  background:
-    radial-gradient(circle at top left, rgba(124, 156, 255, 0.18), transparent 28%),
-    radial-gradient(circle at top right, rgba(77, 226, 197, 0.12), transparent 24%),
-    linear-gradient(180deg, #07111f 0%, #050c17 100%);
+  background: #050c17;
   color: var(--color-foreground);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
@@ -57,18 +47,20 @@ a {
 }
 
 ::selection {
-  background: rgba(124, 156, 255, 0.35);
-  color: #f8fbff;
+  background: #1f4fd1;
+  color: #ffffff;
 }
 
 textarea,
 input,
-button {
+button,
+select {
   font: inherit;
 }
 
 textarea,
-input {
+input,
+select {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
 }
 
@@ -78,4 +70,95 @@ button {
 
 button:disabled {
   cursor: not-allowed;
+}
+
+input[type="file"]::file-selector-button {
+  margin-right: 0.85rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.9rem;
+  background: var(--color-panel-elevated);
+  color: var(--color-foreground);
+  padding: 0.55rem 0.8rem;
+}
+
+.repoghost-screen {
+  width: 100%;
+  overflow-x: hidden;
+  background:
+    radial-gradient(circle at top left, rgba(124, 156, 255, 0.18), transparent 28%),
+    radial-gradient(circle at top right, rgba(77, 226, 197, 0.12), transparent 24%),
+    linear-gradient(180deg, var(--screen-top) 0%, var(--screen-bottom) 100%);
+  transition: background 180ms ease, color 180ms ease;
+}
+
+.repoghost-widget {
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+}
+
+.repoghost-scroll {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.repoghost-scroll::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  background: transparent;
+}
+
+.theme-dark {
+  color-scheme: dark;
+  --color-background: #050c17;
+  --color-foreground: #edf3ff;
+  --color-panel: #0b1423;
+  --color-panel-elevated: #101b2f;
+  --color-panel-soft: #08111f;
+  --color-border: #1f2d45;
+  --color-border-strong: #3a5684;
+  --color-accent: #7c9cff;
+  --color-accent-2: #4de2c5;
+  --color-muted: #8ea3c2;
+  --color-success: #3ddc97;
+  --color-warning: #ffb84d;
+  --color-danger: #ff6b81;
+  --shadow-glow: 0 0 0 1px rgba(124, 156, 255, 0.18), 0 18px 60px rgba(5, 10, 20, 0.45);
+  --screen-top: #07111f;
+  --screen-bottom: #050c17;
+}
+
+.theme-light {
+  color-scheme: light;
+  --color-background: #eef4ff;
+  --color-foreground: #0d1b2d;
+  --color-panel: rgba(255, 255, 255, 0.92);
+  --color-panel-elevated: #ffffff;
+  --color-panel-soft: rgba(244, 248, 255, 0.96);
+  --color-border: #b6c7e6;
+  --color-border-strong: #7b9ccf;
+  --color-accent: #356cff;
+  --color-accent-2: #0f766e;
+  --color-muted: #5a6f91;
+  --color-success: #0b8f58;
+  --color-warning: #b86a00;
+  --color-danger: #c23a51;
+  --shadow-glow: 0 0 0 1px rgba(53, 108, 255, 0.12), 0 20px 52px rgba(38, 60, 98, 0.14);
+  --screen-top: #f4f8ff;
+  --screen-bottom: #e7eefc;
+}
+
+.contrast-high {
+  --color-border: #8aaeff;
+  --color-border-strong: #c6d8ff;
+  --color-accent: #9bb8ff;
+  --color-accent-2: #8ff8dc;
+  --color-muted: #d5e2ff;
+}
+
+.theme-light.contrast-high {
+  --color-border: #3f6fd9;
+  --color-border-strong: #1b4dbd;
+  --color-accent: #174ee6;
+  --color-accent-2: #046c63;
+  --color-muted: #28415f;
 }

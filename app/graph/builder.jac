@@ -35,7 +35,15 @@ def build_graph_refs(request: WorkflowRequest) -> GraphBuildRefs {
     );
 }
 
-def:pub build_stage_one_graph(
+def refresh_trace_summary(graph: ProjectContextGraph, trace: list[WorkflowTraceStep]) -> ProjectContextGraph {
+    graph.trace_summary = [];
+    for step in trace {
+        graph.trace_summary.append(step.agent + " • " + step.status);
+    }
+    return graph;
+}
+
+def:pub build_stage_one_seed_graph(
     request: WorkflowRequest,
     repo_summary: RepoSummary,
     meeting_summary: MeetingSummary,
@@ -44,11 +52,6 @@ def:pub build_stage_one_graph(
     blockers: list[BlockerItem],
     ownership: list[OwnershipGuess],
     planning: ExecutionPlanningContext,
-    tasks: list[TaskItem],
-    tickets: list[GeneratedTicket],
-    handoff: HandoffNoteData,
-    standup: StandupUpdateData,
-    review: ReviewScopeData,
     trace: list[WorkflowTraceStep]
 ) -> ProjectContextGraph {
     refs = build_graph_refs(request);
@@ -101,27 +104,8 @@ def:pub build_stage_one_graph(
         add_edge(edges, refs.project_ref, owner_id, "owned_by", item.area + " • " + str(item.confidence));
     }
 
-    for (index, item) in enumerate(tasks[:5]) {
-        task_id = "task-" + str(index);
-        add_node(nodes, task_id, "Task", item.title, item.summary, "tasks");
-        add_edge(edges, refs.result_ref, task_id, "contains", item.phase);
-    }
-
-    for (index, item) in enumerate(tickets[:4]) {
-        ticket_id = "ticket-" + str(index);
-        add_node(nodes, ticket_id, "Ticket", item.title, item.summary, "tickets");
-        add_edge(edges, refs.result_ref, ticket_id, "generated_from", item.priority);
-    }
-
     add_node(nodes, "planning-context", "PlanningContext", "Execution planning", ", ".join(planning.impacts), "planning");
     add_edge(edges, refs.run_ref, "planning-context", "relates_to", "Stage 1 outputs prepared the planning context.");
-
-    add_node(nodes, "handoff-note", "HandoffNote", "Handoff", handoff.summary, "outputs");
-    add_node(nodes, "standup-update", "StandupUpdate", "Standup", ", ".join(standup.next), "outputs");
-    add_node(nodes, "review-scope", "ReviewScope", "Review", review.summary, "outputs");
-    add_edge(edges, refs.result_ref, "handoff-note", "contains", "handoff");
-    add_edge(edges, refs.result_ref, "standup-update", "contains", "standup");
-    add_edge(edges, refs.result_ref, "review-scope", "contains", "review");
 
     for step in trace {
         trace_summary.append(step.agent + " • " + step.status);
@@ -135,4 +119,67 @@ def:pub build_stage_one_graph(
         focus_paths=focus_paths,
         trace_summary=trace_summary
     );
+}
+
+def:pub finalize_context_graph(
+    graph: ProjectContextGraph,
+    tasks: list[TaskItem],
+    tickets: list[GeneratedTicket],
+    handoff: HandoffNoteData,
+    standup: StandupUpdateData,
+    review: ReviewScopeData,
+    trace: list[WorkflowTraceStep]
+) -> ProjectContextGraph {
+    result_ref: str = graph.run_id + "-bundle";
+
+    for (index, item) in enumerate(tasks[:5]) {
+        task_id = "task-" + str(index);
+        add_node(graph.nodes, task_id, "Task", item.title, item.summary, "tasks");
+        add_edge(graph.edges, result_ref, task_id, "contains", item.phase);
+    }
+
+    for (index, item) in enumerate(tickets[:4]) {
+        ticket_id = "ticket-" + str(index);
+        add_node(graph.nodes, ticket_id, "Ticket", item.title, item.summary, "tickets");
+        add_edge(graph.edges, result_ref, ticket_id, "generated_from", item.priority);
+    }
+
+    add_node(graph.nodes, "handoff-note", "HandoffNote", "Handoff", handoff.summary, "outputs");
+    add_node(graph.nodes, "standup-update", "StandupUpdate", "Standup", ", ".join(standup.next), "outputs");
+    add_node(graph.nodes, "review-scope", "ReviewScope", "Review", review.summary, "outputs");
+    add_edge(graph.edges, result_ref, "handoff-note", "contains", "handoff");
+    add_edge(graph.edges, result_ref, "standup-update", "contains", "standup");
+    add_edge(graph.edges, result_ref, "review-scope", "contains", "review");
+
+    return refresh_trace_summary(graph, trace);
+}
+
+def:pub build_stage_one_graph(
+    request: WorkflowRequest,
+    repo_summary: RepoSummary,
+    meeting_summary: MeetingSummary,
+    relevant_files: list[FileMatch],
+    decisions: list[DecisionItem],
+    blockers: list[BlockerItem],
+    ownership: list[OwnershipGuess],
+    planning: ExecutionPlanningContext,
+    tasks: list[TaskItem],
+    tickets: list[GeneratedTicket],
+    handoff: HandoffNoteData,
+    standup: StandupUpdateData,
+    review: ReviewScopeData,
+    trace: list[WorkflowTraceStep]
+) -> ProjectContextGraph {
+    graph: ProjectContextGraph = build_stage_one_seed_graph(
+        request,
+        repo_summary,
+        meeting_summary,
+        relevant_files,
+        decisions,
+        blockers,
+        ownership,
+        planning,
+        trace
+    );
+    return finalize_context_graph(graph, tasks, tickets, handoff, standup, review, trace);
 }

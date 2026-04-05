@@ -1,6 +1,6 @@
 import from typing { Any }
 import from app.models.core { FileMatch, MeetingSummary, DecisionItem, BlockerItem, OwnershipGuess }
-import from app.models.workflow { WorkflowTraceStep, ExecutionPlanningContext, PlanningInsight }
+import from app.models.workflow { WorkflowTraceStep, WorkflowRunState, ExecutionPlanningContext, PlanningInsight }
 
 obj RepoSummary {
     has project_name: str = "RepoGhost";
@@ -109,6 +109,7 @@ obj WorkflowResultBundle {
     has review: ReviewScopeData = ReviewScopeData();
     has trace: list[WorkflowTraceStep] = [];
     has context_graph: ProjectContextGraph = ProjectContextGraph();
+    has run_state: WorkflowRunState = WorkflowRunState();
 }
 
 obj RepoGhostViewState {
@@ -124,6 +125,7 @@ obj RepoGhostViewState {
     has chatThread: list[dict[str, str]] = [];
     has lastRunLabel: str = "Ready";
     has statusTone: str = "ready";
+    has runState: WorkflowRunState = WorkflowRunState();
     has graphNodes: list[GraphNodeView] = [];
     has graphEdges: list[GraphEdgeView] = [];
     has graphFocusPaths: list[str] = [];

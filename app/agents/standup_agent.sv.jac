@@ -1,3 +1,4 @@
+import from app.services.llm_runtime { llm }
 import from app.models.workflow { WorkflowRequest, ExecutionPlanningContext, WorkflowTraceStep }
 import from app.models.outputs { StandupUpdateData, TaskItem }
 import from app.models.core { MeetingSummary }
@@ -60,3 +61,12 @@ def:pub generate_standup(request: WorkflowRequest, planning: ExecutionPlanningCo
 
     return StandupUpdateData(done=done, next=next_items, blockers=blockers);
 }
+
+def:pub llm_generate_standup(
+    _request: WorkflowRequest,
+    _planning: ExecutionPlanningContext,
+    _tasks: list[TaskItem],
+    _trace: list[WorkflowTraceStep],
+    _meeting: MeetingSummary,
+    _draft: StandupUpdateData
+) -> StandupUpdateData by llm();

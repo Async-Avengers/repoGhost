@@ -2,159 +2,178 @@ import from typing { Any }
 
 def tab_class(tab: str, current: str) -> str {
     if tab == current {
-        return "flex-1 py-2 text-sm font-medium text-foreground border-b-2 border-accent transition-colors";
+        return "flex-1 border-b-2 border-accent px-2.5 py-2.5 text-[14px] font-semibold text-foreground transition-colors";
     }
-    return "flex-1 py-2 text-sm text-muted border-b-2 border-transparent hover:text-foreground transition-colors";
+    return "flex-1 border-b-2 border-transparent px-2.5 py-2.5 text-[14px] text-muted transition-colors hover:text-foreground";
 }
 
-def file_basename(path: str) -> str {
-    normalized: str = path.replace("\\", "/");
-    parts: list[str] = normalized.split("/");
-    return parts[len(parts) - 1];
+def ends_with(text: str, suffix: str) -> bool {
+    if not text or not suffix {
+        return False;
+    }
+    segments: list[str] = text.split(suffix);
+    return len(segments) > 1 and segments[len(segments) - 1] == "";
 }
 
-def file_ext_label(p: str) -> str {
-    if not p {
+def safe_text(value: Any) -> str {
+    if value is None {
+        return "";
+    }
+    return str(value);
+}
+
+def file_ext_label(path: str) -> str {
+    if not path {
         return "file";
     }
-    lower: str = p.lower();
-    if lower.endswith(".py") or lower.endswith(".pyi") { return "py"; }
-    if lower.endswith(".tsx") { return "tsx"; }
-    if lower.endswith(".jsx") { return "jsx"; }
-    if lower.endswith(".ts") { return "ts"; }
-    if lower.endswith(".js") or lower.endswith(".mjs") or lower.endswith(".cjs") { return "js"; }
-    if lower.endswith(".sv.jac") { return "sv.jac"; }
-    if lower.endswith(".cl.jac") { return "cl.jac"; }
-    if lower.endswith(".jac") { return "jac"; }
-    if lower.endswith(".go") { return "go"; }
-    if lower.endswith(".rs") { return "rs"; }
-    if lower.endswith(".java") { return "java"; }
-    if lower.endswith(".kt") or lower.endswith(".kts") { return "kt"; }
-    if lower.endswith(".cs") { return "cs"; }
-    if lower.endswith(".cpp") or lower.endswith(".cc") or lower.endswith(".cxx") { return "cpp"; }
-    if lower.endswith(".c") { return "c"; }
-    if lower.endswith(".rb") { return "rb"; }
-    if lower.endswith(".php") { return "php"; }
-    if lower.endswith(".swift") { return "swift"; }
-    if lower.endswith(".dart") { return "dart"; }
-    if lower.endswith(".vue") { return "vue"; }
-    if lower.endswith(".svelte") { return "svelte"; }
-    if lower.endswith(".html") or lower.endswith(".htm") { return "html"; }
-    if lower.endswith(".css") { return "css"; }
-    if lower.endswith(".scss") or lower.endswith(".sass") { return "scss"; }
-    if lower.endswith(".json") { return "json"; }
-    if lower.endswith(".toml") { return "toml"; }
-    if lower.endswith(".yaml") or lower.endswith(".yml") { return "yaml"; }
-    if lower.endswith(".md") or lower.endswith(".mdx") { return "md"; }
-    if lower.endswith(".sh") or lower.endswith(".bash") { return "sh"; }
-    dot_parts: list[str] = p.split(".");
-    if len(dot_parts) > 1 {
-        ext: str = dot_parts[len(dot_parts) - 1];
-        if len(ext) <= 5 {
-            return ext;
-        }
-    }
+    lower: str = path.lower();
+    if ends_with(lower, ".py") or ends_with(lower, ".pyi") { return "py"; }
+    if ends_with(lower, ".tsx") { return "tsx"; }
+    if ends_with(lower, ".jsx") { return "jsx"; }
+    if ends_with(lower, ".ts") { return "ts"; }
+    if ends_with(lower, ".js") or ends_with(lower, ".mjs") or ends_with(lower, ".cjs") { return "js"; }
+    if ends_with(lower, ".sv.jac") { return "sv.jac"; }
+    if ends_with(lower, ".cl.jac") { return "cl.jac"; }
+    if ends_with(lower, ".jac") { return "jac"; }
+    if ends_with(lower, ".go") { return "go"; }
+    if ends_with(lower, ".rs") { return "rs"; }
+    if ends_with(lower, ".java") { return "java"; }
+    if ends_with(lower, ".kt") or ends_with(lower, ".kts") { return "kt"; }
+    if ends_with(lower, ".cs") { return "cs"; }
+    if ends_with(lower, ".cpp") or ends_with(lower, ".cc") or ends_with(lower, ".cxx") { return "cpp"; }
+    if ends_with(lower, ".c") { return "c"; }
+    if ends_with(lower, ".rb") { return "rb"; }
+    if ends_with(lower, ".php") { return "php"; }
+    if ends_with(lower, ".swift") { return "swift"; }
+    if ends_with(lower, ".dart") { return "dart"; }
+    if ends_with(lower, ".vue") { return "vue"; }
+    if ends_with(lower, ".svelte") { return "svelte"; }
+    if ends_with(lower, ".html") or ends_with(lower, ".htm") { return "html"; }
+    if ends_with(lower, ".css") or ends_with(lower, ".scss") or ends_with(lower, ".sass") { return "css"; }
+    if ends_with(lower, ".json") { return "json"; }
+    if ends_with(lower, ".toml") { return "toml"; }
+    if ends_with(lower, ".yaml") or ends_with(lower, ".yml") { return "yaml"; }
+    if ends_with(lower, ".md") or ends_with(lower, ".mdx") { return "md"; }
     return "file";
 }
 
-def file_ext_badge_class(p: str) -> str {
-    lower: str = p.lower();
-    base: str = "rounded px-1.5 py-0.5 text-[10px] font-medium ";
-    if lower.endswith(".py") or lower.endswith(".pyi") { return base + "bg-blue-500/20 text-blue-300"; }
-    if lower.endswith(".tsx") or lower.endswith(".jsx") { return base + "bg-cyan-500/20 text-cyan-300"; }
-    if lower.endswith(".ts") or lower.endswith(".js") or lower.endswith(".mjs") { return base + "bg-yellow-500/20 text-yellow-300"; }
-    if lower.endswith(".jac") { return base + "bg-accent/20 text-accent"; }
-    if lower.endswith(".go") { return base + "bg-teal-500/20 text-teal-300"; }
-    if lower.endswith(".rs") { return base + "bg-orange-500/20 text-orange-300"; }
-    if lower.endswith(".java") or lower.endswith(".kt") or lower.endswith(".kts") { return base + "bg-red-500/20 text-red-300"; }
-    if lower.endswith(".cs") { return base + "bg-purple-500/20 text-purple-300"; }
-    if lower.endswith(".cpp") or lower.endswith(".cc") or lower.endswith(".c") { return base + "bg-indigo-500/20 text-indigo-300"; }
-    if lower.endswith(".rb") { return base + "bg-rose-500/20 text-rose-300"; }
-    if lower.endswith(".php") { return base + "bg-violet-500/20 text-violet-300"; }
-    if lower.endswith(".swift") { return base + "bg-orange-400/20 text-orange-200"; }
-    if lower.endswith(".dart") { return base + "bg-sky-500/20 text-sky-300"; }
-    if lower.endswith(".vue") { return base + "bg-emerald-500/20 text-emerald-300"; }
-    if lower.endswith(".svelte") { return base + "bg-orange-600/20 text-orange-300"; }
-    if lower.endswith(".html") or lower.endswith(".htm") { return base + "bg-amber-500/20 text-amber-300"; }
-    if lower.endswith(".css") or lower.endswith(".scss") or lower.endswith(".sass") { return base + "bg-pink-500/20 text-pink-300"; }
-    if lower.endswith(".json") or lower.endswith(".toml") or lower.endswith(".yaml") or lower.endswith(".yml") { return base + "bg-slate-500/20 text-slate-300"; }
-    if lower.endswith(".md") or lower.endswith(".mdx") { return base + "bg-gray-500/20 text-gray-300"; }
-    if lower.endswith(".sh") or lower.endswith(".bash") { return base + "bg-lime-500/20 text-lime-300"; }
+def file_ext_badge_class(path: str) -> str {
+    lower: str = path.lower();
+    base: str = "inline-flex shrink-0 items-center rounded-md px-2 py-1 text-[11px] font-semibold ";
+    if ends_with(lower, ".py") or ends_with(lower, ".pyi") { return base + "bg-blue-500/20 text-blue-300"; }
+    if ends_with(lower, ".tsx") or ends_with(lower, ".jsx") { return base + "bg-cyan-500/20 text-cyan-300"; }
+    if ends_with(lower, ".ts") or ends_with(lower, ".js") or ends_with(lower, ".mjs") or ends_with(lower, ".cjs") { return base + "bg-yellow-500/20 text-yellow-300"; }
+    if ends_with(lower, ".jac") { return base + "bg-accent/20 text-accent"; }
+    if ends_with(lower, ".go") { return base + "bg-teal-500/20 text-teal-300"; }
+    if ends_with(lower, ".rs") { return base + "bg-orange-500/20 text-orange-300"; }
+    if ends_with(lower, ".java") or ends_with(lower, ".kt") or ends_with(lower, ".kts") { return base + "bg-red-500/20 text-red-300"; }
+    if ends_with(lower, ".md") or ends_with(lower, ".mdx") { return base + "bg-slate-500/20 text-slate-300"; }
     return base + "bg-border text-muted";
 }
 
-def avatar_color_class(idx: int) -> str {
-    if idx == 0 {
-        return "flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-purple-500/30 text-xs font-semibold text-purple-300";
-    }
-    if idx == 1 {
-        return "flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-500/30 text-xs font-semibold text-blue-300";
-    }
-    return "flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-green-500/30 text-xs font-semibold text-green-300";
+def section_label(text: str) -> JsxElement {
+    return <div className="text-[12px] font-semibold uppercase tracking-[0.14em] text-muted">{text}</div>;
 }
 
-def section_label(text: str) -> JsxElement {
-    return <div className="mb-2 text-xs font-semibold text-muted uppercase tracking-[0.12em]">{text}</div>;
+def card_class() -> str {
+    return "min-w-0 overflow-hidden rounded-[1.2rem] border border-border bg-panel-soft/90 p-3.5";
 }
 
 def invoke_callback(fn: Any, value: Any) -> None {
     fn.call(None, value);
 }
 
-async def invoke_async_callback(fn: Any, value: Any) -> None {
-    await fn.call(None, value);
+def invoke_noarg_callback(fn: Any) -> None {
+    fn.call(None);
 }
 
-def mark_used(value: Any) -> None {
-    if value {
-        return;
+async def invoke_async_callback(fn: Any) -> None {
+    await fn.call(None);
+}
+
+def status_badge_label(run_state: Any, loading: bool) -> str {
+    if loading {
+        return "Running";
     }
+    if not run_state or not run_state.execution_mode {
+        return "Idle";
+    }
+    if run_state.execution_mode == "llm" {
+        return "LLM";
+    }
+    if run_state.execution_mode == "hybrid" {
+        return "Hybrid";
+    }
+    return "Fallback";
+}
+
+def status_badge_class(run_state: Any, loading: bool) -> str {
+    base: str = "inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] ";
+    if loading {
+        return base + "border-accent/40 bg-accent/10 text-accent";
+    }
+    if not run_state or not run_state.execution_mode {
+        return base + "border-border bg-panel-soft text-muted";
+    }
+    if run_state.execution_mode == "llm" {
+        return base + "border-emerald-500/40 bg-emerald-500/10 text-emerald-300";
+    }
+    if run_state.execution_mode == "hybrid" {
+        return base + "border-sky-500/40 bg-sky-500/10 text-sky-300";
+    }
+    return base + "border-amber-500/40 bg-amber-500/10 text-amber-300";
+}
+
+def history_bubble_class(role: str) -> str {
+    if role == "user" {
+        return "ml-auto max-w-[92%] break-words rounded-[1.2rem] border border-accent/30 bg-accent/10 px-4 py-3 text-[14px] text-foreground";
+    }
+    return "max-w-[92%] break-words rounded-[1.2rem] border border-border bg-panel-soft px-4 py-3 text-[14px] text-foreground";
 }
 
 def:pub WidgetShell(
     bundle: Any = None,
-    mode: str = "feature_plan",
-    draftPrompt: str = "",
+    runState: Any = None,
+    meetingText: str = "",
+    contextFileName: str = "",
+    contextLoading: bool = False,
+    queryLoading: bool = False,
     loading: bool = False,
     error: str = "",
-    lastRunLabel: str = "Ready",
     activeWidgetTab: str = "context",
     repoPath: str = "",
     ownership: list[Any] = [],
-    standup: Any = None,
     decisions: list[Any] = [],
-    graphNodes: list[Any] = [],
-    actionPlanPhases: list[str] = [],
-    ticketTitles: list[str] = [],
-    handoffActions: list[str] = [],
-    graphFocusPaths: list[str] = [],
-    setDraftPrompt: Any = None,
+    statusMessage: str = "",
+    hasProcessedContext: bool = False,
+    followUpPrompt: str = "",
+    followUpHistory: list[dict[str, str]] = [],
     setRepoPath: Any = None,
+    setMeetingText: Any = None,
+    setContextFileName: Any = None,
     setActiveWidgetTab: Any = None,
-    submit: Any = None
+    setFollowUpPrompt: Any = None,
+    processContext: Any = None,
+    askAboutRun: Any = None
 ) -> JsxElement {
-    onSetRepo = setRepoPath;
-    onSetTab = setActiveWidgetTab;
-    onSubmit = submit;
-
-    mark_used(setDraftPrompt);
-    mark_used(mode);
-    mark_used(lastRunLabel);
-    mark_used(graphNodes);
-    mark_used(actionPlanPhases);
-    mark_used(ticketTitles);
-    mark_used(handoffActions);
-    mark_used(graphFocusPaths);
-
     files: list[Any] = [];
     blockers: list[Any] = [];
     tasks: list[Any] = [];
-    projectName: str = "";
+    tickets: list[Any] = [];
+    transcriptSummary: str = "";
+    runSummary: str = statusMessage;
+    projectName: str = "RepoGhost";
     projectType: str = "";
+    nextSteps: list[str] = [];
+
     if bundle {
         files = bundle.relevant_files or [];
         blockers = bundle.blockers or [];
         tasks = bundle.tasks or [];
+        tickets = bundle.tickets or [];
+        if bundle.meeting_summary and bundle.meeting_summary.summary {
+            transcriptSummary = bundle.meeting_summary.summary;
+        }
         if bundle.repo_summary {
             if bundle.repo_summary.project_name {
                 projectName = bundle.repo_summary.project_name;
@@ -163,408 +182,371 @@ def:pub WidgetShell(
                 projectType = bundle.repo_summary.project_type;
             }
         }
+        if bundle.handoff and bundle.handoff.next_actions {
+            nextSteps = bundle.handoff.next_actions;
+        } elif bundle.standup and bundle.standup.next {
+            nextSteps = bundle.standup.next;
+        }
+    }
+    if runState and runState.summary {
+        runSummary = runState.summary;
     }
 
-    todoItems: list[str] = [];
-    inProgressItems: list[str] = [];
-    standupBlockers: list[str] = [];
-    if standup {
-        todoItems = standup.next or [];
-        inProgressItems = standup.done or [];
-        standupBlockers = standup.blockers or [];
-    }
-
-    # --- Tab click handlers ---
-
-    def clickContextTab() -> None {
-        if onSetTab {
-            invoke_callback(onSetTab, "context");
+    def open_context_tab() -> None {
+        if setActiveWidgetTab {
+            invoke_callback(setActiveWidgetTab, "context");
         }
     }
 
-    def clickTasksTab() -> None {
-        if onSetTab {
-            invoke_callback(onSetTab, "tasks");
+    def open_tasks_tab() -> None {
+        if setActiveWidgetTab {
+            invoke_callback(setActiveWidgetTab, "tasks");
         }
     }
 
-    def clickSummaryTab() -> None {
-        if onSetTab {
-            invoke_callback(onSetTab, "summary");
+    def open_summary_tab() -> None {
+        if setActiveWidgetTab {
+            invoke_callback(setActiveWidgetTab, "summary");
         }
     }
 
-    # --- Workflow action handlers ---
-
-    async def runAgents() -> None {
-        if onSubmit {
-            await invoke_async_callback(onSubmit, draftPrompt);
+    async def process_current_context() -> None {
+        if processContext {
+            await invoke_async_callback(processContext);
         }
     }
 
-    async def rescanRepo() -> None {
-        if onSubmit {
-            await invoke_async_callback(onSubmit, "Scan the repo and show relevant files, ownership map, and project context.");
+    async def ask_current_run() -> None {
+        if askAboutRun {
+            await invoke_async_callback(askAboutRun);
         }
     }
 
-    async def generateTickets() -> None {
-        if onSubmit {
-            await invoke_async_callback(onSubmit, "Generate tickets from the current repo and meeting context.");
+    async def handle_transcript_upload(e: Any) -> None {
+        file_list: Any = e.target.files;
+        if file_list is None or file_list.length == 0 {
+            return;
+        }
+        file: Any = file_list[0];
+        file_text: Any = await file.text();
+        if setMeetingText {
+            invoke_callback(setMeetingText, str(file_text));
+        }
+        if setContextFileName {
+            invoke_callback(setContextFileName, str(file.name));
         }
     }
-
-    async def updateDocs() -> None {
-        if onSubmit {
-            await invoke_async_callback(onSubmit, "Sync documentation and generate a handoff note.");
-        }
-    }
-
-    async def codeSearch() -> None {
-        if onSubmit {
-            await invoke_async_callback(onSubmit, "Search for relevant code files and summarize their roles.");
-        }
-    }
-
-    async def copyReport() -> None {
-        if onSubmit {
-            await invoke_async_callback(onSubmit, "Generate a summary report of this session.");
-        }
-    }
-
-    def viewPlans() -> None {
-        if onSetTab {
-            invoke_callback(onSetTab, "tasks");
-        }
-    }
-
-    # --- Build Context tab ---
 
     fileRows: list[JsxElement] = [];
     for item in files {
-        basename: str = file_basename(item.path);
-        extLabel: str = file_ext_label(item.path);
-        extClass: str = file_ext_badge_class(item.path);
+        itemPath: str = safe_text(item.path);
+        itemKey: str = itemPath + "::" + str(len(fileRows));
         fileRows.append(
-            <div key={item.path + "::" + str(len(fileRows))} className="flex items-center gap-2 py-1 min-w-0">
-                <span className={extClass + " shrink-0"}>{extLabel}</span>
-                <span className="text-xs text-foreground truncate" title={item.path}>{item.path}</span>
+            <div key={itemKey} className="flex min-w-0 items-center gap-3 rounded-xl border border-border/70 bg-panel px-3 py-2 overflow-hidden">
+                <span className={file_ext_badge_class(itemPath)}>{file_ext_label(itemPath)}</span>
+                <span className="truncate text-[14px] text-foreground" title={itemPath}>{itemPath}</span>
             </div>
         );
+        if len(fileRows) >= 4 {
+            break;
+        }
     }
-    if len(fileRows) == 0 {
-        fileRows.append(
-            <div key="no-files" className="py-1.5 text-sm text-muted">No files scanned yet. Enter a repo path and click Rescan Repo.</div>
-        );
-    }
-    fileCountLabel: str = str(len(files)) + " files";
 
-    ownerRows: list[JsxElement] = [];
-    ownerIdx: int = 0;
+    ownershipRows: list[JsxElement] = [];
     for item in ownership {
-        if ownerIdx >= 3 {
+        ownerKey: str = safe_text(item.area) + "::" + safe_text(item.owner) + "::" + str(len(ownershipRows));
+        ownershipRows.append(
+            <div key={ownerKey} className="rounded-xl border border-border/70 bg-panel px-3 py-3">
+                <div className="text-[14px] font-semibold text-foreground">{safe_text(item.area)}</div>
+                <div className="mt-1 text-[13px] text-muted">{safe_text(item.owner)}</div>
+            </div>
+        );
+        if len(ownershipRows) >= 3 {
             break;
         }
-        avatarClass: str = avatar_color_class(ownerIdx);
-        ownerName: str = str(item.owner);
-        ownerArea: str = str(item.area);
-        initial: str = ownerName[:1].upper() if ownerName else "?";
-        ownerLabel: str = ownerArea + ": " + ownerName;
-        ownerRows.append(
-            <div key={ownerArea} className="flex items-center gap-2 py-1.5">
-                <div className={avatarClass}>{initial}</div>
-                <span className="text-sm text-foreground">{ownerLabel}</span>
-            </div>
-        );
-        ownerIdx = ownerIdx + 1;
-    }
-    if len(ownerRows) == 0 {
-        ownerRows.append(
-            <div key="no-owners" className="py-1.5 text-sm text-muted">No ownership data yet.</div>
-        );
     }
 
-    projectPlaceholder: str = projectName if projectName else "Enter repo path...";
-
-    projectTypeBadge: JsxElement = <div />;
-    if projectType {
-        projectTypeBadge = <div className="mt-1.5 inline-flex items-center rounded-full border border-accent/30 bg-accent/10 px-2.5 py-0.5 text-[11px] font-medium text-accent">
-            {projectType}
-        </div>;
-    }
-
-    contextContent: JsxElement = <div className="space-y-4">
-        <div>
-            {section_label("Identified Project:")}
-            <input
-                type="text"
-                value={repoPath}
-                onChange={lambda e: Any -> None { if onSetRepo { invoke_callback(onSetRepo, e.target.value); } }}
-                placeholder={projectPlaceholder}
-                className="w-full rounded-lg border border-border bg-panel-soft px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted focus:border-accent transition-colors"
-            />
-            {projectTypeBadge}
-        </div>
-        <div>
-            <div className="mb-2 flex items-center justify-between">
-                {section_label("Active Files:")}
-                <span className="text-[10px] text-muted">{fileCountLabel}</span>
-            </div>
-            <div className="max-h-52 overflow-y-auto space-y-0.5 pr-1">{fileRows}</div>
-        </div>
-        <div>
-            {section_label("Ownership Map:")}
-            <div className="space-y-0.5">{ownerRows}</div>
-        </div>
-    </div>;
-
-    # --- Build Tasks tab ---
-
-    todoRows: list[JsxElement] = [];
-    for item in todoItems {
-        if len(todoRows) >= 3 {
-            break;
-        }
-        todoRows.append(
-            <div key={item} className="flex items-start gap-2 py-1">
-                <span className="mt-0.5 text-success text-sm">✓</span>
-                <span className="text-sm text-foreground">{item}</span>
-            </div>
-        );
-    }
-    if len(todoRows) == 0 {
-        todoRows.append(
-            <div key="no-todo" className="py-1 text-sm text-muted">No to-do items yet.</div>
-        );
-    }
-
-    inProgressRows: list[JsxElement] = [];
+    taskCards: list[JsxElement] = [];
     for item in tasks {
-        if len(inProgressRows) >= 3 {
-            break;
+        fileTags: list[JsxElement] = [];
+        likelyFiles: list[str] = item.likely_files or [];
+        for filePath in likelyFiles {
+            fileKey: str = safe_text(item.title) + "::file::" + str(len(fileTags));
+            fileTags.append(
+                <span key={fileKey} className="max-w-full truncate rounded-full border border-border px-2 py-0.5 text-[11px] text-muted">
+                    {filePath}
+                </span>
+            );
+            if len(fileTags) >= 3 {
+                break;
+            }
         }
-        inProgressRows.append(
-            <div key={item.title} className="flex items-start gap-2 py-1">
-                <span className="mt-0.5 text-success text-sm">✓</span>
-                <span className="text-sm text-foreground">{item.title}</span>
+        taskCards.append(
+            <div key={safe_text(item.title) + "::" + str(len(taskCards))} className="min-w-0 overflow-hidden rounded-[1.3rem] border border-border bg-panel-soft/90 p-4">
+                <div className="break-words text-[15px] font-semibold text-foreground">{safe_text(item.title)}</div>
+                <div className="mt-2 break-words text-[14px] leading-6 text-muted">{safe_text(item.summary)}</div>
+                <div className="mt-3 flex flex-wrap gap-2">{fileTags}</div>
             </div>
         );
+        if len(taskCards) >= 3 {
+            break;
+        }
     }
-    if len(inProgressRows) == 0 {
-        inProgressRows.append(
-            <div key="no-progress" className="py-1 text-sm text-muted">No tasks in progress yet.</div>
+
+    ticketRows: list[JsxElement] = [];
+    for item in tickets {
+        ticketRows.append(
+            <div key={safe_text(item.title) + "::" + str(len(ticketRows))} className="min-w-0 overflow-hidden rounded-xl border border-border/70 bg-panel px-3 py-3">
+                <div className="break-words text-[14px] font-semibold text-foreground">{safe_text(item.title)}</div>
+                <div className="mt-1 break-words text-[13px] text-muted">{safe_text(item.summary)}</div>
+            </div>
         );
+        if len(ticketRows) >= 2 {
+            break;
+        }
+    }
+
+    decisionRows: list[JsxElement] = [];
+    for item in decisions {
+        decisionRows.append(
+            <div key={safe_text(item.title) + "::" + str(len(decisionRows))} className="min-w-0 overflow-hidden rounded-xl border border-border/70 bg-panel px-3 py-3">
+                <div className="break-words text-[14px] font-semibold text-foreground">{safe_text(item.title)}</div>
+                <div className="mt-1 break-words text-[13px] text-muted">{safe_text(item.detail)}</div>
+            </div>
+        );
+        if len(decisionRows) >= 3 {
+            break;
+        }
     }
 
     blockerRows: list[JsxElement] = [];
-    blockerSource: list[str] = standupBlockers;
-    if len(blockerSource) == 0 {
-        for b in blockers {
-            blockerSource.append(b.title);
-        }
-    }
-    for item in blockerSource {
-        if len(blockerRows) >= 3 {
+    for item in blockers {
+        blockerRows.append(
+            <div key={safe_text(item.title) + "::" + str(len(blockerRows))} className="min-w-0 overflow-hidden rounded-xl border border-danger/20 bg-danger/5 px-3 py-3">
+                <div className="break-words text-[14px] font-semibold text-foreground">{safe_text(item.title)}</div>
+                <div className="mt-1 break-words text-[13px] text-muted">{safe_text(item.detail)}</div>
+            </div>
+        );
+        if len(blockerRows) >= 2 {
             break;
         }
-        blockerRows.append(
-            <div key={item} className="flex items-start gap-2 py-1">
-                <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-danger" />
-                <span className="text-sm text-foreground">{item}</span>
-            </div>
-        );
-    }
-    if len(blockerRows) == 0 {
-        blockerRows.append(
-            <div key="no-blockers" className="py-1 text-sm text-muted">No blockers surfaced yet.</div>
-        );
-    }
-
-    actionBtnClass: str = "rounded-lg border border-border bg-panel-soft px-3 py-2 text-xs font-medium text-foreground hover:bg-border transition-colors disabled:opacity-50 disabled:cursor-not-allowed";
-
-    tasksContent: JsxElement = <div className="space-y-4">
-        <div className="text-sm font-semibold text-foreground">Task Breakdown</div>
-        <div>
-            {section_label("To-Do:")}
-            <div className="space-y-0.5">{todoRows}</div>
-        </div>
-        <div>
-            {section_label("In Progress:")}
-            <div className="space-y-0.5">{inProgressRows}</div>
-        </div>
-        <div>
-            {section_label("Blockers:")}
-            <div className="space-y-0.5">{blockerRows}</div>
-        </div>
-        <div>
-            {section_label("Next Actions:")}
-            <div className="space-y-2">
-                <div className="flex gap-2">
-                    <button onClick={generateTickets} disabled={loading} className={actionBtnClass}>Generate Tickets</button>
-                    <button onClick={updateDocs} disabled={loading} className={actionBtnClass}>Update Docs</button>
-                </div>
-                <button onClick={codeSearch} disabled={loading} className={"w-full " + actionBtnClass}>Code Search</button>
-            </div>
-        </div>
-    </div>;
-
-    # --- Build Summary tab ---
-
-    changedRows: list[JsxElement] = [];
-    for item in decisions {
-        if len(changedRows) >= 3 {
-            break;
-        }
-        changedRows.append(
-            <div key={item.title} className="flex items-start gap-2 py-1">
-                <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-success" />
-                <span className="text-sm text-foreground">{item.title}</span>
-            </div>
-        );
-    }
-    if len(changedRows) == 0 {
-        changedRows.append(
-            <div key="no-changes" className="py-1 text-sm text-muted">No decisions recorded yet.</div>
-        );
     }
 
     nextStepRows: list[JsxElement] = [];
-    for item in todoItems {
+    for item in nextSteps {
+        nextStepRows.append(
+            <div key={item + "::" + str(len(nextStepRows))} className="min-w-0 break-words rounded-xl border border-border/70 bg-panel px-3 py-3 text-[14px] text-foreground">
+                {item}
+            </div>
+        );
         if len(nextStepRows) >= 3 {
             break;
         }
-        nextStepRows.append(
-            <div key={item} className="flex items-start gap-2 py-1">
-                <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-success" />
-                <span className="text-sm text-foreground">{item}</span>
+    }
+
+    historyWindow: list[dict[str, str]] = followUpHistory;
+    if len(historyWindow) > 4 {
+        historyWindow = historyWindow[len(historyWindow) - 4:];
+    }
+
+    queryRows: list[JsxElement] = [];
+    for item in historyWindow {
+        role: str = item["role"];
+        queryRows.append(
+            <div key={role + "::" + str(len(queryRows))} className="flex">
+                <div className={history_bubble_class(role)}>{item["content"]}</div>
             </div>
         );
     }
-    if len(nextStepRows) == 0 {
-        nextStepRows.append(
-            <div key="no-next" className="py-1 text-sm text-muted">No next steps yet.</div>
-        );
-    }
-
-    currentBlockerRows: list[JsxElement] = [];
-    for item in blockers {
-        if len(currentBlockerRows) >= 3 {
-            break;
-        }
-        currentBlockerRows.append(
-            <div key={item.title} className="flex items-start gap-2 py-1">
-                <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-warning" />
-                <span className="text-sm text-foreground">{item.title}</span>
-            </div>
-        );
-    }
-    if len(currentBlockerRows) == 0 {
-        currentBlockerRows.append(
-            <div key="no-current-blockers" className="py-1 text-sm text-muted">No blockers surfaced yet.</div>
-        );
-    }
-
-    summaryContent: JsxElement = <div className="space-y-4">
-        <div className="text-sm font-semibold text-foreground">Meeting Recap</div>
-        <div>
-            {section_label("Changes Made:")}
-            <div className="space-y-0.5">{changedRows}</div>
-        </div>
-        <div>
-            {section_label("Next Steps:")}
-            <div className="space-y-0.5">{nextStepRows}</div>
-        </div>
-        <div>
-            {section_label("Current Blockers:")}
-            <div className="space-y-0.5">{currentBlockerRows}</div>
-        </div>
-    </div>;
-
-    # --- Select active content and bottom bar ---
-
-    tabContent: JsxElement = contextContent;
-    if activeWidgetTab == "tasks" {
-        tabContent = tasksContent;
-    }
-    if activeWidgetTab == "summary" {
-        tabContent = summaryContent;
-    }
-
-    runBtnLabel: str = "Running..." if loading else "▲  Run Agents";
-    outlineBtnClass: str = "flex-1 rounded-lg border border-border bg-transparent px-3 py-2 text-xs font-medium text-foreground hover:bg-panel-soft transition-colors";
-    iconBtnClass: str = "rounded-lg p-2 text-muted hover:text-foreground transition-colors";
-
-    contextBottom: JsxElement = <div className="flex items-center justify-between">
-        <button onClick={rescanRepo} disabled={loading} className="flex items-center gap-1.5 rounded-lg border border-border bg-panel-soft px-3 py-2 text-xs font-medium text-foreground hover:bg-border transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-            <span>👻</span>
-            <span>Rescan Repo</span>
-        </button>
-        <div className="flex gap-1">
-            <button className={iconBtnClass} title="Pin widget">📌</button>
-            <button className={iconBtnClass} title="Filter">≡</button>
-        </div>
-    </div>;
-
-    tasksBottom: JsxElement = <div className="flex items-center justify-between">
-        <button onClick={runAgents} disabled={loading} className="flex items-center gap-1.5 rounded-lg bg-accent px-4 py-2 text-xs font-semibold text-background hover:brightness-110 transition disabled:opacity-50 disabled:cursor-not-allowed">
-            <span>{runBtnLabel}</span>
-        </button>
-        <div className="flex gap-1">
-            <button className={iconBtnClass} title="Suggestions">💡</button>
-            <button className={iconBtnClass} title="Filter">≡</button>
-        </div>
-    </div>;
-
-    summaryBottom: JsxElement = <div className="flex gap-2">
-        <button onClick={viewPlans} className={outlineBtnClass}>View Plans</button>
-        <button onClick={copyReport} disabled={loading} className={outlineBtnClass + " disabled:opacity-50"}>Copy Report</button>
-    </div>;
-
-    bottomBar: JsxElement = contextBottom;
-    if activeWidgetTab == "tasks" {
-        bottomBar = tasksBottom;
-    }
-    if activeWidgetTab == "summary" {
-        bottomBar = summaryBottom;
-    }
-
-    # --- Error banner (shown above content if error) ---
 
     errorBanner: JsxElement = <div />;
     if error {
-        errorBanner = <div className="mx-4 mt-3 rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-foreground">
+        errorBanner = <div className="mx-5 mt-4 rounded-2xl border border-danger/40 bg-danger/10 px-4 py-3 text-[14px] text-foreground">
             {error}
         </div>;
     }
 
-    return <div className="w-[380px] overflow-hidden rounded-2xl border border-border bg-[#0e1726] shadow-[var(--shadow-glow)] flex flex-col">
-
-        <div className="flex items-center justify-between border-b border-border px-4 py-3">
-            <div className="flex items-center gap-2">
-                <span className="text-lg">👻</span>
-                <span className="text-sm font-semibold text-foreground">RepoGhost</span>
+    processedContextBody: JsxElement = <div className="space-y-3 min-w-0">
+        <div className={card_class() + " space-y-3"}>
+            <div className="flex items-center justify-between gap-3">
+                {section_label("Grounded Files")}
+                <span className="text-[12px] text-muted">{str(len(files)) + " files"}</span>
             </div>
-            <div className="flex items-center gap-1">
-                <button className="rounded px-2 py-0.5 text-xs text-muted hover:text-foreground transition-colors">−</button>
-                <button className="rounded px-2 py-0.5 text-xs text-muted hover:text-foreground transition-colors">×</button>
+            <div className="space-y-2 min-w-0">{fileRows}</div>
+        </div>
+        <div className={card_class() + " space-y-3"}>
+            {section_label("Ownership Map")}
+            <div className="grid grid-cols-1 gap-3">{ownershipRows}</div>
+        </div>
+    </div>;
+
+    emptyContextBody: JsxElement = <div className={card_class()}>
+        <div className="text-[14px] font-semibold text-foreground">Add a repo and transcript, then process context.</div>
+    </div>;
+
+    contextTail: JsxElement = emptyContextBody;
+    if hasProcessedContext {
+        contextTail = processedContextBody;
+    }
+
+    contextContent: JsxElement = <div className="space-y-4">
+        <div className={card_class() + " space-y-4"}>
+            <div className="flex items-center justify-between gap-3">
+                {section_label("Context Input")}
+                <span className={status_badge_class(runState, loading)}>{status_badge_label(runState, loading)}</span>
+            </div>
+            <div>
+                <div className="mb-2 text-[14px] font-semibold text-foreground">Repository Path</div>
+                <input
+                    type="text"
+                    value={repoPath}
+                    onChange={lambda e: Any -> None { if setRepoPath { invoke_callback(setRepoPath, e.target.value); } }}
+                    placeholder="C:/path/to/repo"
+                    className="w-full rounded-2xl border border-border bg-panel px-4 py-3 text-[15px] text-foreground outline-none placeholder:text-muted focus:border-accent transition-colors"
+                />
+            </div>
+            <div>
+                <div className="mb-2 text-[14px] font-semibold text-foreground">Meeting / Transcript</div>
+                <textarea
+                    value={meetingText}
+                    onChange={lambda e: Any -> None {
+                        if setContextFileName { invoke_callback(setContextFileName, ""); }
+                        if setMeetingText { invoke_callback(setMeetingText, e.target.value); }
+                    }}
+                    placeholder="Paste transcript notes, decisions, or discussion highlights..."
+                    rows={5}
+                    className="w-full rounded-2xl border border-border bg-panel px-4 py-3 text-[15px] text-foreground outline-none placeholder:text-muted focus:border-accent transition-colors resize-none"
+                />
+            </div>
+            <div>
+                <div className="mb-2 text-[14px] font-semibold text-foreground">Text File Upload</div>
+                <input
+                    type="file"
+                    accept=".txt,.md,.mdx,.log,text/plain,text/markdown"
+                    onChange={handle_transcript_upload}
+                    className="w-full rounded-2xl border border-border bg-panel px-4 py-3 text-[14px] text-foreground"
+                />
+                <div className="mt-2 text-[12px] text-muted">
+                    {contextFileName if contextFileName else "Upload fills the transcript field."}
+                </div>
+            </div>
+            <button
+                onClick={process_current_context}
+                disabled={contextLoading}
+                className="inline-flex items-center justify-center rounded-2xl bg-accent px-5 py-3 text-[15px] font-semibold text-background transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+                {("Processing Context..." if contextLoading else "Process Context")}
+            </button>
+        </div>
+        {contextTail}
+    </div>;
+
+    processedTasksBody: JsxElement = <div className="space-y-3 min-w-0">
+        <div className={card_class() + " space-y-3"}>
+            {section_label("Execution Tasks")}
+            <div className="grid grid-cols-1 gap-3 min-w-0">{taskCards}</div>
+        </div>
+        <div className={card_class() + " space-y-3"}>
+            {section_label("Ticket Preview")}
+            <div className="grid grid-cols-1 gap-3 min-w-0">{ticketRows}</div>
+        </div>
+    </div>;
+
+    emptyTasksBody: JsxElement = <div className={card_class()}>
+        <div className="text-[14px] font-semibold text-foreground">Process context to generate tasks.</div>
+    </div>;
+
+    tasksContent: JsxElement = emptyTasksBody;
+    if hasProcessedContext {
+        tasksContent = processedTasksBody;
+    }
+
+    processedSummaryBody: JsxElement = <div className="space-y-3 min-w-0">
+        <div className={card_class()}>
+            {section_label("Project / Run Summary")}
+            <div className="mt-3 text-[15px] font-semibold text-foreground">{projectName}</div>
+            <div className="mt-2 break-words text-[14px] leading-6 text-muted">{runSummary}</div>
+            {(<div /> if not projectType else <div className="mt-3 inline-flex rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-[12px] font-medium text-accent">{projectType}</div>)}
+        </div>
+        <div className={card_class()}>
+            {section_label("Transcript Summary")}
+            <div className="mt-3 break-words text-[14px] leading-6 text-foreground">
+                {transcriptSummary if transcriptSummary else "Transcript understanding will appear here after the run completes."}
             </div>
         </div>
+        <div className={card_class() + " space-y-3"}>
+            {section_label("Decisions")}
+            <div className="grid grid-cols-1 gap-3">{decisionRows}</div>
+        </div>
+        <div className={card_class() + " space-y-3"}>
+            {section_label("Current Blockers")}
+            <div className="grid grid-cols-1 gap-3">{blockerRows}</div>
+        </div>
+        <div className={card_class() + " space-y-3"}>
+            {section_label("Next Steps")}
+            <div className="grid grid-cols-1 gap-3">{nextStepRows}</div>
+        </div>
+        <div className={card_class() + " space-y-3"}>
+            {section_label("Ask About This Run")}
+            <textarea
+                value={followUpPrompt}
+                onChange={lambda e: Any -> None { if setFollowUpPrompt { invoke_callback(setFollowUpPrompt, e.target.value); } }}
+                placeholder="Ask about this run."
+                rows={3}
+                className="w-full rounded-2xl border border-border bg-panel px-4 py-3 text-[15px] text-foreground outline-none placeholder:text-muted focus:border-accent transition-colors resize-none"
+            />
+            <button
+                onClick={ask_current_run}
+                disabled={queryLoading}
+                className="inline-flex items-center justify-center rounded-2xl bg-accent px-5 py-3 text-[15px] font-semibold text-background transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+                {("Thinking..." if queryLoading else "Ask")}
+            </button>
+            <div className="space-y-3 min-w-0">{queryRows}</div>
+        </div>
+    </div>;
 
-        <div className="flex border-b border-border">
-            <button onClick={clickContextTab} className={tab_class("context", activeWidgetTab)}>Context</button>
-            <button onClick={clickTasksTab} className={tab_class("tasks", activeWidgetTab)}>Tasks</button>
-            <button onClick={clickSummaryTab} className={tab_class("summary", activeWidgetTab)}>Summary</button>
+    emptySummaryBody: JsxElement = <div className={card_class()}>
+        <div className="text-[14px] font-semibold text-foreground">Process context to unlock the summary.</div>
+    </div>;
+
+    summaryContent: JsxElement = emptySummaryBody;
+    if hasProcessedContext {
+        summaryContent = processedSummaryBody;
+    }
+
+    tabContent: JsxElement = contextContent;
+    if activeWidgetTab == "tasks" {
+        tabContent = tasksContent;
+    } elif activeWidgetTab == "summary" {
+        tabContent = summaryContent;
+    }
+
+    subtitle: str = "Repo sidecar";
+
+    return <div className="repoghost-widget flex h-[calc(100vh-32px)] w-full min-w-0 max-w-none flex-col overflow-hidden rounded-[1.7rem] border border-border bg-panel/95 shadow-[var(--shadow-glow)]">
+        <div className="border-b border-border px-4 py-3.5">
+            <div className="min-w-0">
+                <div className="flex items-center gap-3">
+                    <span className="text-[22px]">👻</span>
+                    <div className="min-w-0">
+                        <div className="text-[18px] font-semibold tracking-tight text-foreground">RepoGhost</div>
+                        <div className="truncate text-[12px] text-muted">{subtitle}</div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         {errorBanner}
 
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className="flex border-b border-border">
+            <button onClick={open_context_tab} className={tab_class("context", activeWidgetTab)}>Context</button>
+            <button onClick={open_tasks_tab} className={tab_class("tasks", activeWidgetTab)}>Tasks</button>
+            <button onClick={open_summary_tab} className={tab_class("summary", activeWidgetTab)}>Summary</button>
+        </div>
+
+        <div className="repoghost-scroll flex-1 min-w-0 overflow-y-auto overflow-x-hidden px-5 py-4">
             {tabContent}
         </div>
-
-        <div className="border-t border-border px-4 py-3">
-            {bottomBar}
-        </div>
-
     </div>;
 }

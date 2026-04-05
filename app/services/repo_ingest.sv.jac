@@ -124,25 +124,42 @@ def scored_match(rel_path: str, file_name: str) -> FileMatch {
     return FileMatch(path=rel_path, score=0.35, rationale="Included from recursive repo scan.", kind="file");
 }
 
-def read_file_head(full_path: str) -> str {
+def read_file_head(full_path: str, content_cache: dict[str, str] | None = None) -> str {
+    if content_cache is not None and full_path in content_cache {
+        return content_cache[full_path];
+    }
+    text: str = "";
     try {
         with open(full_path, "r", encoding="utf-8", errors="ignore") as f {
-            return f.read();
+            text = f.read();
         }
     } except OSError {
-        return "";
+        text = "";
     } except UnicodeError {
-        return "";
+        text = "";
     }
+    if content_cache is not None {
+        content_cache[full_path] = text;
+    }
+    return text;
 }
 
-def detect_project_type(repo_path: str, files: list[FileMatch]) -> str {
+def last_path_part(text: str) -> str {
+    parts: list[str] = text.split("/");
+    if len(parts) > 0 {
+        return parts[len(parts) - 1];
+    }
+    return text;
+}
+
+def detect_project_type(repo_path: str, files: list[FileMatch], content_cache: dict[str, str] | None = None) -> str {
     for item in files {
-        name: str = item.path.split("/")[-1].lower();
+        file_name: str = last_path_part(item.path);
+        name: str = file_name.lower();
         full_path: str = path.join(repo_path, item.path);
 
         if name == "package.json" {
-            text: str = read_file_head(full_path);
+            text: str = read_file_head(full_path, content_cache);
             if "\"next\"" in text { return "Next.js App"; }
             if "\"nuxt\"" in text { return "Nuxt.js App"; }
             if "\"react\"" in text { return "React App"; }
@@ -160,21 +177,21 @@ def detect_project_type(repo_path: str, files: list[FileMatch]) -> str {
         if name == "jac.toml" { return "Jac Project"; }
 
         if name == "pyproject.toml" {
-            text: str = read_file_head(full_path);
+            text: str = read_file_head(full_path, content_cache);
             if "fastapi" in text { return "Python FastAPI Service"; }
             if "django" in text { return "Python Django App"; }
             if "flask" in text { return "Python Flask Service"; }
             return "Python Project";
         }
         if name == "requirements.txt" {
-            text: str = read_file_head(full_path);
+            text: str = read_file_head(full_path, content_cache);
             if "fastapi" in text { return "Python FastAPI Service"; }
             if "django" in text { return "Python Django App"; }
             if "flask" in text { return "Python Flask Service"; }
             return "Python Project";
         }
         if name == "gemfile" {
-            text: str = read_file_head(full_path);
+            text: str = read_file_head(full_path, content_cache);
             if "rails" in text { return "Ruby on Rails App"; }
             return "Ruby Project";
         }
@@ -230,15 +247,15 @@ def detect_project_type(repo_path: str, files: list[FileMatch]) -> str {
     return best_lang;
 }
 
-def detect_frameworks(repo_path: str, files: list[FileMatch]) -> list[str] {
+def detect_frameworks(repo_path: str, files: list[FileMatch], content_cache: dict[str, str] | None = None) -> list[str] {
     frameworks: list[str] = [];
     for item in files {
         lower: str = item.path.lower();
-        name: str = lower.split("/")[-1];
+        name: str = last_path_part(lower);
         full_path: str = path.join(repo_path, item.path);
 
         if name == "package.json" {
-            text: str = read_file_head(full_path);
+            text: str = read_file_head(full_path, content_cache);
             if "\"react\"" in text and "React" not in frameworks { frameworks.append("React"); }
             if "\"next\"" in text and "Next.js" not in frameworks { frameworks.append("Next.js"); }
             if "\"vue\"" in text and "Vue" not in frameworks { frameworks.append("Vue"); }
@@ -257,7 +274,7 @@ def detect_frameworks(repo_path: str, files: list[FileMatch]) -> list[str] {
         if name == "go.mod" and "Go" not in frameworks { frameworks.append("Go"); }
 
         if name in ["requirements.txt", "pyproject.toml"] {
-            text: str = read_file_head(full_path);
+            text: str = read_file_head(full_path, content_cache);
             if "fastapi" in text and "FastAPI" not in frameworks { frameworks.append("FastAPI"); }
             if "django" in text and "Django" not in frameworks { frameworks.append("Django"); }
             if "flask" in text and "Flask" not in frameworks { frameworks.append("Flask"); }
@@ -267,7 +284,7 @@ def detect_frameworks(repo_path: str, files: list[FileMatch]) -> list[str] {
         }
 
         if name == "gemfile" {
-            text: str = read_file_head(full_path);
+            text: str = read_file_head(full_path, content_cache);
             if "rails" in text and "Rails" not in frameworks { frameworks.append("Rails"); }
         }
 
@@ -306,8 +323,12 @@ def:pub scan_repo(repo_path: str) -> list[FileMatch] {
     return matches;
 }
 
-def:pub summarize_repo(repo_path: str) -> RepoSummary {
-    files: list[FileMatch] = scan_repo(repo_path);
+def:pub summarize_repo(
+    repo_path: str,
+    scanned_files: list[FileMatch] | None = None,
+    content_cache: dict[str, str] | None = None
+) -> RepoSummary {
+    files: list[FileMatch] = scanned_files if scanned_files is not None else scan_repo(repo_path);
     project_name: str = path.basename(repo_path) if repo_path else "Unknown Project";
     major_dirs: list[str] = [];
     entry_points: list[str] = [];
@@ -322,8 +343,8 @@ def:pub summarize_repo(repo_path: str) -> RepoSummary {
         }
     }
 
-    frameworks: list[str] = detect_frameworks(repo_path, files);
-    project_type: str = detect_project_type(repo_path, files);
+    frameworks: list[str] = detect_frameworks(repo_path, files, content_cache);
+    project_type: str = detect_project_type(repo_path, files, content_cache);
 
     framework_str: str = "";
     for fw in frameworks {

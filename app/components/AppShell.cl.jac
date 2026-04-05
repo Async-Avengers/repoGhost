@@ -588,6 +588,21 @@ def:pub AppShell() -> JsxElement {
                     confirmingNewGhost={confirmingNewGhost}
                     cancelNewGhost={cancel_new_ghost}
                     confirmNewGhost={confirm_new_ghost}
+                    themeMode={themeMode}
+                    contrastMode={contrastMode}
+                    settingsEditorOpen={settingsEditorOpen}
+                    selectedModel={selectedModel}
+                    modelOptions={modelOptions}
+                    userApiKey={userApiKey}
+                    rememberSettings={rememberSettings}
+                    toggleTheme={toggle_theme}
+                    toggleContrast={toggle_contrast}
+                    toggleSettingsEditor={toggle_settings_editor}
+                    saveApiSettings={save_api_settings}
+                    clearApiSettings={clear_api_settings}
+                    updateSelectedModel={update_selected_model}
+                    updateUserApiKey={update_user_api_key}
+                    updateRememberSettings={update_remember_settings}
                 />
             </div>
         </div>

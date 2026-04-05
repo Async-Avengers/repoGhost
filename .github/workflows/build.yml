@@ -79,13 +79,16 @@ jobs:
           fi
 
       - name: jac install — restore dependencies
-        run: jac install
+        shell: bash
+        run: |
+          pip3 install -r requirements.txt --break-system-packages
+          jac install
 
       - name: jac start — scaffold client
         shell: bash
         run: |
           jac start main.jac &
-          sleep 15
+          sleep 30
           kill %1
 
       - name: Debug — list .jac after jac js
@@ -180,12 +183,14 @@ jobs:
           fi
 
       - name: jac install — restore dependencies
-        run: jac install
+        run: |
+          pip3 install -r requirements.txt --break-system-packages
+          jac install
 
       - name: jac start — scaffold client
         run: |
           jac start main.jac &
-          sleep 15
+          sleep 30
           kill %1
 
       - name: Debug — list .jac after jac js
@@ -291,12 +296,14 @@ jobs:
           fi
 
       - name: jac install — restore dependencies
-        run: jac install
+        run: |
+          pip3 install -r requirements.txt --break-system-packages
+          jac install
 
       - name: jac start — scaffold client
         run: |
           jac start main.jac &
-          sleep 15
+          sleep 30
           kill %1
 
       - name: Debug — list .jac after jac js

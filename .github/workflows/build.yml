@@ -84,8 +84,8 @@ jobs:
       - name: jac install — restore dependencies
         run: jac install
 
-      - name: jac build — compile frontend + backend
-        run: jac build
+      - name: jac js — compile frontend
+        run: jac js
 
       # jac build already produced .jac/client/dist, so clear beforeBuildCommand
       # in tauri.conf.json to prevent Tauri from trying to re-run the bun script
@@ -161,9 +161,9 @@ jobs:
       - name: Install Jac toolchain
         run: |
           if [ "${{ steps.jac.outputs.pin }}" = "latest" ]; then
-            pip3 install jaclang
+            pip3 install jaclang --break-system-packages
           else
-            pip3 install "jaclang==${{ steps.jac.outputs.pin }}"
+            pip3 install "jaclang==${{ steps.jac.outputs.pin }}" --break-system-packages
           fi
 
       - name: Install Tauri CLI (latest stable)
@@ -172,8 +172,8 @@ jobs:
       - name: jac install — restore dependencies
         run: jac install
 
-      - name: jac build — compile frontend + backend
-        run: jac build
+      - name: jac js — compile frontend
+        run: jac js
 
       - name: Patch tauri.conf.json — clear beforeBuildCommand
         run: |
@@ -273,8 +273,8 @@ jobs:
       - name: jac install — restore dependencies
         run: jac install
 
-      - name: jac build — compile frontend + backend
-        run: jac build
+      - name: jac js — compile frontend
+        run: jac js
 
       - name: Patch tauri.conf.json — clear beforeBuildCommand
         run: |

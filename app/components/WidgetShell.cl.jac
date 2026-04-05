@@ -1,5 +1,11 @@
 import from typing { Any }
 
+def mark_used(value: Any) -> None {
+    if value {
+        return;
+    }
+}
+
 def html_escape(text: str) -> str {
     t: str = text.replace("&", "&amp;");
     t = t.replace("<", "&lt;");
@@ -367,6 +373,17 @@ def history_bubble_class(role: str) -> str {
     return "max-w-[92%] break-words rounded-[1.2rem] border border-border bg-panel-soft px-4 py-3 text-[14px] text-foreground";
 }
 
+def widget_model_options(model_opts: list[str]) -> list[JsxElement] {
+    rows: list[JsxElement] = [];
+    for item in model_opts {
+        rows.append(<option key={item} value={item}>{item}</option>);
+    }
+    if len(rows) == 0 {
+        rows.append(<option key="gpt-4o-mini" value="gpt-4o-mini">gpt-4o-mini</option>);
+    }
+    return rows;
+}
+
 def:pub WidgetShell(
     bundle: Any = None,
     runState: Any = None,
@@ -395,8 +412,25 @@ def:pub WidgetShell(
     promptNewGhost: Any = None,
     confirmingNewGhost: bool = False,
     cancelNewGhost: Any = None,
-    confirmNewGhost: Any = None
+    confirmNewGhost: Any = None,
+    themeMode: str = "dark",
+    contrastMode: str = "standard",
+    settingsEditorOpen: bool = False,
+    selectedModel: str = "gpt-4o-mini",
+    modelOptions: list[str] = ["gpt-4o-mini"],
+    userApiKey: str = "",
+    rememberSettings: bool = True,
+    toggleTheme: Any = None,
+    toggleContrast: Any = None,
+    toggleSettingsEditor: Any = None,
+    saveApiSettings: Any = None,
+    clearApiSettings: Any = None,
+    updateSelectedModel: Any = None,
+    updateUserApiKey: Any = None,
+    updateRememberSettings: Any = None
 ) -> JsxElement {
+    has mobileMenuOpen: bool = False;
+
     files: list[Any] = [];
     blockers: list[Any] = [];
     tasks: list[Any] = [];
@@ -826,6 +860,40 @@ def:pub WidgetShell(
         }
     }
 
+    def open_mobile_menu() -> None {
+        mobileMenuOpen = True;
+        mark_used(mobileMenuOpen);
+    }
+
+    def close_mobile_menu() -> None {
+        mobileMenuOpen = False;
+        mark_used(mobileMenuOpen);
+    }
+
+    def do_toggle_theme() -> None {
+        if toggleTheme { invoke_noarg_callback(toggleTheme); }
+    }
+
+    def do_toggle_contrast() -> None {
+        if toggleContrast { invoke_noarg_callback(toggleContrast); }
+    }
+
+    def do_toggle_settings_editor() -> None {
+        if toggleSettingsEditor {
+            invoke_noarg_callback(toggleSettingsEditor);
+            mobileMenuOpen = False;
+            mark_used(mobileMenuOpen);
+        }
+    }
+
+    def do_save_api_settings() -> None {
+        if saveApiSettings { invoke_noarg_callback(saveApiSettings); }
+    }
+
+    def do_clear_api_settings() -> None {
+        if clearApiSettings { invoke_noarg_callback(clearApiSettings); }
+    }
+
     destroy_btn: JsxElement = <div />;
     if confirmingNewGhost {
         destroy_btn = <div className="flex items-center gap-2">
@@ -853,19 +921,162 @@ def:pub WidgetShell(
         </button>;
     }
 
+    headerIconBtn: str = "inline-flex h-9 w-9 items-center justify-center rounded-full border border-border bg-panel/85 text-[16px] text-foreground transition hover:bg-panel-elevated";
+    headerActionBtn: str = "inline-flex h-9 items-center justify-center rounded-full border border-border bg-panel/85 px-3 text-[12px] font-medium text-foreground transition hover:bg-panel-elevated";
+    headerActionBtnActive: str = "inline-flex h-9 items-center justify-center rounded-full border border-accent/60 bg-accent/10 px-3 text-[12px] font-medium text-accent transition";
+
+    settings_content: JsxElement = <div className="flex flex-col gap-4">
+        <div>
+            <div className="mb-1.5 text-[13px] font-semibold text-foreground">Model</div>
+            <select
+                value={selectedModel}
+                onChange={lambda e: Any -> None { if updateSelectedModel { invoke_callback(updateSelectedModel, e.target.value); } }}
+                className="w-full rounded-xl border border-border bg-panel px-3 py-2 text-[14px] text-foreground outline-none focus:border-accent transition-colors"
+            >
+                {widget_model_options(modelOptions)}
+            </select>
+        </div>
+        <div>
+            <div className="mb-1.5 text-[13px] font-semibold text-foreground">API Key</div>
+            <input
+                type="password"
+                value={userApiKey}
+                onChange={lambda e: Any -> None { if updateUserApiKey { invoke_callback(updateUserApiKey, e.target.value); } }}
+                placeholder="sk-..."
+                className="w-full rounded-xl border border-border bg-panel px-3 py-2 text-[14px] text-foreground outline-none placeholder:text-muted focus:border-accent transition-colors"
+            />
+        </div>
+        <div className="flex items-center gap-2">
+            <input
+                type="checkbox"
+                id="widget-remember"
+                checked={rememberSettings}
+                onChange={lambda e: Any -> None { if updateRememberSettings { invoke_callback(updateRememberSettings, e.target.checked); } }}
+                className="h-4 w-4 rounded accent-accent"
+            />
+            <label htmlFor="widget-remember" className="cursor-pointer text-[13px] text-muted">Remember on this device</label>
+        </div>
+        <div className="flex gap-2">
+            <button
+                onClick={do_save_api_settings}
+                className="inline-flex flex-1 items-center justify-center rounded-xl bg-accent px-4 py-2 text-[13px] font-semibold text-background transition hover:brightness-110"
+            >
+                Save
+            </button>
+            <button
+                onClick={do_clear_api_settings}
+                className="inline-flex items-center justify-center rounded-xl border border-border px-4 py-2 text-[13px] font-medium text-muted transition hover:bg-danger/10 hover:text-danger"
+            >
+                Clear Key
+            </button>
+        </div>
+    </div>;
+
+    mobile_drawer: JsxElement = <div />;
+    if mobileMenuOpen {
+        mobile_drawer = <div className="fixed inset-0 z-50 flex justify-end">
+            <div
+                className="flex-1 bg-black/50 backdrop-blur-sm"
+                onClick={close_mobile_menu}
+            />
+            <div className="flex w-72 flex-col overflow-y-auto border-l border-border bg-panel shadow-2xl">
+                <div className="flex items-center justify-between border-b border-border px-4 py-3.5">
+                    <div className="text-[15px] font-semibold text-foreground">Settings</div>
+                    <button
+                        onClick={close_mobile_menu}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-border text-[14px] text-muted transition hover:bg-panel-elevated"
+                    >
+                        ✕
+                    </button>
+                </div>
+                <div className="flex flex-col gap-5 px-4 py-5">
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={do_toggle_theme}
+                            className={headerIconBtn}
+                            title={"Switch to light mode" if themeMode == "dark" else "Switch to dark mode"}
+                        >
+                            {"☀" if themeMode == "dark" else "☾"}
+                        </button>
+                        <button
+                            onClick={do_toggle_contrast}
+                            className={headerIconBtn}
+                            title={"High contrast" if contrastMode == "standard" else "Standard contrast"}
+                        >
+                            {"◐" if contrastMode == "standard" else "◎"}
+                        </button>
+                        <span className="text-[12px] text-muted">Theme & Contrast</span>
+                    </div>
+                    {settings_content}
+                    <div className="border-t border-border pt-4">
+                        {destroy_btn}
+                    </div>
+                </div>
+            </div>
+        </div>;
+    }
+
+    desktop_settings_panel: JsxElement = <div />;
+    if settingsEditorOpen {
+        desktop_settings_panel = <div className="hidden border-b border-border px-5 py-4 md:block">
+            {settings_content}
+        </div>;
+    }
+
     return <div className="repoghost-widget flex h-[calc(100vh-32px)] w-full min-w-0 max-w-none flex-col overflow-hidden rounded-[1.7rem] border border-border bg-panel/95 shadow-[var(--shadow-glow)]">
+        {mobile_drawer}
         <div className="border-b border-border px-4 py-3.5">
-            <div className="flex items-center justify-between gap-3 min-w-0">
-                <div className="flex items-center gap-3 min-w-0">
+            <div className="flex min-w-0 items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-3">
                     <span className="text-[22px]">👻</span>
                     <div className="min-w-0">
                         <div className="text-[18px] font-semibold tracking-tight text-foreground">repoGhost</div>
                         <div className="truncate text-[12px] text-muted">{subtitle}</div>
                     </div>
                 </div>
-                {destroy_btn}
+                <div className="flex shrink-0 items-center gap-1.5">
+                    <div className="hidden items-center gap-1.5 md:flex">
+                        <select
+                            value={selectedModel}
+                            onChange={lambda e: Any -> None { if updateSelectedModel { invoke_callback(updateSelectedModel, e.target.value); } }}
+                            className="max-w-[150px] rounded-full border border-border bg-panel/85 px-3 py-2 text-[12px] text-foreground outline-none transition-colors focus:border-accent"
+                        >
+                            {widget_model_options(modelOptions)}
+                        </select>
+                        <button
+                            onClick={do_toggle_theme}
+                            className={headerIconBtn}
+                            title={"Switch to light mode" if themeMode == "dark" else "Switch to dark mode"}
+                        >
+                            {"☀" if themeMode == "dark" else "☾"}
+                        </button>
+                        <button
+                            onClick={do_toggle_contrast}
+                            className={headerIconBtn}
+                            title={"High contrast" if contrastMode == "standard" else "Standard contrast"}
+                        >
+                            {"◐" if contrastMode == "standard" else "◎"}
+                        </button>
+                        <button
+                            onClick={do_toggle_settings_editor}
+                            className={(headerActionBtnActive if settingsEditorOpen else headerActionBtn)}
+                            title="API Key settings"
+                        >
+                            🔑 API Key
+                        </button>
+                        {destroy_btn}
+                    </div>
+                    <button
+                        onClick={open_mobile_menu}
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border bg-panel/85 text-[18px] text-foreground transition hover:bg-panel-elevated md:hidden"
+                        title="Open settings"
+                    >
+                        ☰
+                    </button>
+                </div>
             </div>
         </div>
+        {desktop_settings_panel}
 
         {errorBanner}
 

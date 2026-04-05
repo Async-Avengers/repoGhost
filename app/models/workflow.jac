@@ -11,6 +11,9 @@ obj WorkflowTraceStep {
     has started_at: str = "";
     has finished_at: str = "";
     has detail: str = "";
+    has execution_mode: str = "deterministic";
+    has model_name: str = "";
+    has fallback_reason: str = "";
 }
 
 obj WorkflowRequest {
@@ -18,13 +21,19 @@ obj WorkflowRequest {
     has meeting_text: str = "";
     has prompt: str = "";
     has mode: str = "feature_plan";
+    has user_api_key: str = "";
+    has user_model: str = "";
 }
 
 obj WorkflowRunState {
     has run_id: str = "";
     has mode: str = "feature_plan";
+    has kind: str = "full_run";
     has status: str = "idle";
     has summary: str = "";
+    has execution_mode: str = "fallback";
+    has model_name: str = "";
+    has fallback_reason: str = "";
 }
 
 obj PlanningInsight {

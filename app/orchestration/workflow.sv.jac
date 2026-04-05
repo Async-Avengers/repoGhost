@@ -1,17 +1,33 @@
+import from datetime { datetime }
 import from os { path }
-import from traceback { print_exc }
-import from app.models.workflow { WorkflowRequest, WorkflowTraceStep, ExecutionPlanningContext, PlanningInsight }
-import from app.models.core { DecisionItem, BlockerItem, FileMatch, MeetingSummary, OwnershipGuess }
-import from app.models.outputs {
-    ActionPlan, GeneratedTicket, HandoffNoteData, RepoSummary, ReviewScopeData,
-    ProjectContextGraph, StandupUpdateData, TaskItem, WorkflowResultBundle
+import from concurrent.futures { Future }
+import from typing { Any, cast }
+import from byllm.exceptions { ByLLMError }
+import from app.models.workflow {
+    WorkflowRequest, WorkflowTraceStep, WorkflowRunState,
+    ExecutionPlanningContext, PlanningInsight
 }
-include app.services.demo_data;
-import from app.services.memory_store { remember_session, update_project_memory, get_project_memory }
-import from app.graph.builder { build_stage_one_graph }
+import from app.models.core {
+    DecisionItem, BlockerItem, FileMatch, MeetingSummary, OwnershipGuess
+}
+import from app.models.outputs {
+    ActionPlan, DocsSyncResult, GeneratedTicket, HandoffNoteData, RepoSummary,
+    ReviewScopeData, ProjectContextGraph, StandupUpdateData, TaskItem,
+    WorkflowResultBundle
+}
+import from app.services.llm_runtime {
+    llm, llm_available, llm_model_name, llm_unavailable_reason,
+    configure_request_llm
+}
+import from app.services.memory_store {
+    remember_session, update_project_memory, get_project_memory
+}
+import from app.services.repo_ingest { scan_repo }
+import from app.graph.builder { build_stage_one_seed_graph, finalize_context_graph }
 include app.agents.repo_mapper;
 include app.agents.meeting_interpreter;
 include app.agents.code_search;
+include app.agents.docs_sync;
 import from app.agents.context_resolver { resolve_context }
 import from app.agents.blocker_detector { detect_blockers }
 import from app.agents.dependency_impact { analyze_dependency_impact }
@@ -22,97 +38,667 @@ include app.agents.standup_agent;
 include app.agents.handoff_agent;
 include app.agents.review_prep;
 
-obj WorkflowDocsContext {
-    has files: list[FileMatch] = [];
-    has decisions: list[DecisionItem] = [];
+def llm_query_run_artifacts(_prompt: str, _artifact_context: str) -> str by llm();
+
+def now_text() -> str {
+    return str(datetime.now());
 }
 
-def read_workflow_doc_text(file_path: str) -> str {
-    try {
-        with open(file_path, "r", encoding="utf-8") as handle {
-            return handle.read();
-        }
-    } except OSError {
-        return "";
-    } except UnicodeError {
-        return "";
+def replace_text(text: str, old: str, replacement: str) -> str {
+    return text.replace(old, replacement);
+}
+
+def lower_text(text: str) -> str {
+    return text.lower();
+}
+
+def trace_step(
+    stage: str,
+    agent: str,
+    detail: str,
+    execution_mode: str = "deterministic",
+    fallback_reason: str = "",
+    model_name: str = ""
+) -> WorkflowTraceStep {
+    started: str = now_text();
+    return WorkflowTraceStep(
+        stage=stage,
+        agent=agent,
+        status="done",
+        started_at=started,
+        finished_at=started,
+        detail=detail,
+        execution_mode=execution_mode,
+        model_name=model_name,
+        fallback_reason=fallback_reason
+    );
+}
+
+def slice_text(text: str, limit: int) -> str {
+    if len(text) <= limit {
+        return text;
     }
+    return text[:limit];
 }
 
-def workflow_doc_lines(text: str) -> list[str] {
-    return text.split("\n");
-}
-
-def workflow_trim_text(text: str) -> str {
-    return text.strip();
-}
-
-def collect_workflow_docs(repo_path: str) -> WorkflowDocsContext {
-    docs: list[FileMatch] = [];
-    decisions: list[DecisionItem] = [];
-    if not repo_path {
-        return WorkflowDocsContext(files=docs, decisions=decisions);
-    }
-    candidates: list[str] = ["README.md", "readme.md", "docs/README.md", "SPEC.md", "docs/spec.md"];
-    for rel_path in candidates {
-        full_path = path.join(repo_path, rel_path.replace("/", path.sep));
-        if not path.exists(full_path) {
+def join_lines(lines: list[str]) -> str {
+    text: str = "";
+    for item in lines {
+        if not item {
             continue;
         }
-        docs.append(
+        if text {
+            text = text + "\n";
+        }
+        text = text + item;
+    }
+    return text;
+}
+
+def limited_files(files: list[FileMatch], limit: int) -> list[FileMatch] {
+    trimmed: list[FileMatch] = [];
+    for item in files {
+        if len(trimmed) >= limit {
+            break;
+        }
+        trimmed.append(item);
+    }
+    return trimmed;
+}
+
+def find_file_match(candidates: list[FileMatch], match_path: str) -> FileMatch | None {
+    for item in candidates {
+        if item.path == match_path {
+            return item;
+        }
+    }
+    return None;
+}
+
+def merged_reranked_files(candidates: list[FileMatch], reranked: list[FileMatch], limit: int = 24) -> list[FileMatch] {
+    merged: list[FileMatch] = [];
+    seen_paths: list[str] = [];
+
+    for item in reranked {
+        if len(merged) >= limit {
+            break;
+        }
+        known: FileMatch | None = find_file_match(candidates, item.path);
+        if known is None or item.path in seen_paths {
+            continue;
+        }
+        merged.append(
             FileMatch(
-                path=rel_path,
-                score=0.76,
-                rationale="Documentation file pulled into project context.",
-                kind="doc"
+                path=known.path,
+                score=(item.score if item.score > 0.0 else known.score),
+                rationale=(item.rationale if item.rationale else known.rationale),
+                kind=known.kind
             )
         );
-        content: str = read_workflow_doc_text(full_path);
-        if not content {
+        seen_paths.append(item.path);
+    }
+
+    for item in candidates {
+        if len(merged) >= limit {
+            break;
+        }
+        if item.path in seen_paths {
             continue;
         }
-        content_lines: list[str] = workflow_doc_lines(content);
-        for line in content_lines {
-            stripped: str = workflow_trim_text(line);
-            if stripped {
-                decisions.append(
-                    DecisionItem(
-                        title="Doc summary",
-                        detail=stripped,
-                        confidence=0.61,
-                        source=rel_path
-                    )
-                );
-                break;
+        merged.append(item);
+        seen_paths.append(item.path);
+    }
+
+    return merged;
+}
+
+def read_repo_text(repo_path: str, rel_path: str, content_cache: dict[str, str] | None = None) -> str {
+    full_path: str = path.join(repo_path, rel_path.replace("/", path.sep));
+    if content_cache is not None and full_path in content_cache {
+        return content_cache[full_path];
+    }
+    text: str = "";
+    try {
+        with open(full_path, "r", encoding="utf-8", errors="ignore") as handle {
+            text = handle.read();
+        }
+    } except OSError {
+        text = "";
+    } except UnicodeError {
+        text = "";
+    }
+    if content_cache is not None {
+        content_cache[full_path] = text;
+    }
+    return text;
+}
+
+def normalized_doc_decisions(doc_path: str, items: list[DecisionItem]) -> list[DecisionItem] {
+    normalized: list[DecisionItem] = [];
+    for item in items {
+        title: str = item.title if item.title else "Documentation context";
+        detail: str = item.detail if item.detail else "Documentation context extracted from " + doc_path + ".";
+        confidence: float = item.confidence if item.confidence > 0.0 else 0.68;
+        source: str = item.source if item.source else doc_path;
+        normalized.append(
+            DecisionItem(title=title, detail=detail, confidence=confidence, source=source)
+        );
+    }
+    return normalized;
+}
+
+obj RepoSummaryOutcome {
+    has summary: RepoSummary = RepoSummary();
+    has mode: str = "deterministic";
+    has reason: str = "";
+}
+
+obj MeetingSummaryOutcome {
+    has summary: MeetingSummary = MeetingSummary();
+    has mode: str = "deterministic";
+    has reason: str = "";
+}
+
+obj FileMatchesOutcome {
+    has files: list[FileMatch] = [];
+    has mode: str = "deterministic";
+    has reason: str = "";
+}
+
+obj DecisionItemsOutcome {
+    has decisions: list[DecisionItem] = [];
+    has mode: str = "deterministic";
+    has reason: str = "";
+}
+
+obj ActionPlanOutcome {
+    has plan: ActionPlan = ActionPlan();
+    has mode: str = "deterministic";
+    has reason: str = "";
+}
+
+obj TasksOutcome {
+    has tasks: list[TaskItem] = [];
+    has mode: str = "deterministic";
+    has reason: str = "";
+}
+
+obj TicketsOutcome {
+    has tickets: list[GeneratedTicket] = [];
+    has mode: str = "deterministic";
+    has reason: str = "";
+}
+
+obj StandupOutcome {
+    has standup: StandupUpdateData = StandupUpdateData();
+    has mode: str = "deterministic";
+    has reason: str = "";
+}
+
+obj HandoffOutcome {
+    has handoff: HandoffNoteData = HandoffNoteData();
+    has mode: str = "deterministic";
+    has reason: str = "";
+}
+
+obj ReviewOutcome {
+    has review: ReviewScopeData = ReviewScopeData();
+    has mode: str = "deterministic";
+    has reason: str = "";
+}
+
+def repo_mapper_fallback_reason(error_text: str) -> str {
+    return "Repo Mapper Agent fell back to deterministic summarization: " + error_text;
+}
+
+def meeting_fallback_reason(error_text: str) -> str {
+    return "Meeting Interpreter Agent fell back to deterministic parsing: " + error_text;
+}
+
+def code_search_fallback_reason(error_text: str) -> str {
+    return "Code Search Agent kept deterministic ranking after rerank failure: " + error_text;
+}
+
+def docs_fallback_reason(error_text: str) -> str {
+    return "Docs Sync Agent kept deterministic extraction after LLM failure: " + error_text;
+}
+
+def action_plan_fallback_reason(error_text: str) -> str {
+    return "Action Planner Agent fell back to deterministic planning: " + error_text;
+}
+
+def tasks_fallback_reason(error_text: str) -> str {
+    return "Action Planner task generation fell back to deterministic tasks: " + error_text;
+}
+
+def tickets_fallback_reason(error_text: str) -> str {
+    return "Ticket Writer Agent fell back to deterministic tickets: " + error_text;
+}
+
+def standup_fallback_reason(error_text: str) -> str {
+    return "Standup Agent fell back to deterministic output: " + error_text;
+}
+
+def handoff_fallback_reason(error_text: str) -> str {
+    return "Handoff Agent fell back to deterministic output: " + error_text;
+}
+
+def review_fallback_reason(error_text: str) -> str {
+    return "PR Review Prep Agent fell back to deterministic output: " + error_text;
+}
+
+def enrich_repo_summary(repo_path: str, scanned_files: list[FileMatch], draft: RepoSummary) -> RepoSummaryOutcome {
+    outcome: RepoSummaryOutcome = RepoSummaryOutcome(summary=draft);
+    if len(scanned_files) == 0 {
+        return outcome;
+    }
+    if not llm_available() {
+        outcome.mode = "fallback";
+        outcome.reason = llm_unavailable_reason();
+        return outcome;
+    }
+    try {
+        outcome.summary = llm_repo_mapper(repo_path, limited_files(scanned_files, 16), draft);
+        outcome.mode = "llm";
+    } except ByLLMError as e {
+        outcome.mode = "fallback";
+        outcome.reason = repo_mapper_fallback_reason(str(e));
+    } except RuntimeError as e {
+        outcome.mode = "fallback";
+        outcome.reason = repo_mapper_fallback_reason(str(e));
+    } except ValueError as e {
+        outcome.mode = "fallback";
+        outcome.reason = repo_mapper_fallback_reason(str(e));
+    } except TypeError as e {
+        outcome.mode = "fallback";
+        outcome.reason = repo_mapper_fallback_reason(str(e));
+    } except OSError as e {
+        outcome.mode = "fallback";
+        outcome.reason = repo_mapper_fallback_reason(str(e));
+    }
+    return outcome;
+}
+
+def enrich_meeting_summary(meeting_text: str, draft: MeetingSummary) -> MeetingSummaryOutcome {
+    outcome: MeetingSummaryOutcome = MeetingSummaryOutcome(summary=draft);
+    if not meeting_text {
+        return outcome;
+    }
+    if not llm_available() {
+        outcome.mode = "fallback";
+        outcome.reason = llm_unavailable_reason();
+        return outcome;
+    }
+    try {
+        outcome.summary = llm_meeting_interpreter(slice_text(meeting_text, 9000), draft);
+        outcome.mode = "llm";
+    } except ByLLMError as e {
+        outcome.mode = "fallback";
+        outcome.reason = meeting_fallback_reason(str(e));
+    } except RuntimeError as e {
+        outcome.mode = "fallback";
+        outcome.reason = meeting_fallback_reason(str(e));
+    } except ValueError as e {
+        outcome.mode = "fallback";
+        outcome.reason = meeting_fallback_reason(str(e));
+    } except TypeError as e {
+        outcome.mode = "fallback";
+        outcome.reason = meeting_fallback_reason(str(e));
+    } except OSError as e {
+        outcome.mode = "fallback";
+        outcome.reason = meeting_fallback_reason(str(e));
+    }
+    return outcome;
+}
+
+def rerank_relevant_files(prompt: str, meeting_text: str, relevant_files: list[FileMatch]) -> FileMatchesOutcome {
+    outcome: FileMatchesOutcome = FileMatchesOutcome(files=relevant_files);
+    if not llm_available() or len(relevant_files) == 0 or not (prompt or meeting_text) {
+        return outcome;
+    }
+    try {
+        reranked: list[FileMatch] = llm_rerank_code_search(
+            prompt,
+            slice_text(meeting_text, 4000),
+            limited_files(relevant_files, 16)
+        );
+        outcome.files = merged_reranked_files(relevant_files, reranked, 24);
+        outcome.mode = "hybrid";
+    } except ByLLMError as e {
+        outcome.reason = code_search_fallback_reason(str(e));
+    } except RuntimeError as e {
+        outcome.reason = code_search_fallback_reason(str(e));
+    } except ValueError as e {
+        outcome.reason = code_search_fallback_reason(str(e));
+    } except TypeError as e {
+        outcome.reason = code_search_fallback_reason(str(e));
+    } except OSError as e {
+        outcome.reason = code_search_fallback_reason(str(e));
+    }
+    return outcome;
+}
+
+def enrich_doc_decisions(
+    repo_path: str,
+    doc_files: list[FileMatch],
+    doc_decisions: list[DecisionItem],
+    content_cache: dict[str, str] | None = None
+) -> DecisionItemsOutcome {
+    outcome: DecisionItemsOutcome = DecisionItemsOutcome(decisions=doc_decisions);
+    if len(doc_files) == 0 or not llm_available() {
+        return outcome;
+    }
+    futures: list[Future[list[DecisionItem]]] = [];
+    future_files: list[FileMatch] = [];
+    try {
+        for doc_file in doc_files[:4] {
+            doc_text: str = slice_text(read_repo_text(repo_path, doc_file.path, content_cache), 6000);
+            if not doc_text {
+                continue;
+            }
+            draft_items: list[DecisionItem] = [];
+            for item in doc_decisions {
+                if item.source == doc_file.path {
+                    draft_items.append(item);
+                }
+            }
+            futures.append(flow llm_extract_doc_decisions(doc_file.path, doc_text, draft_items));
+            future_files.append(doc_file);
+        }
+        enriched_decisions: list[DecisionItem] = [];
+        for (index, future) in enumerate(futures) {
+            llm_items: list[DecisionItem] = cast(list[DecisionItem], wait future);
+            for item in normalized_doc_decisions(future_files[index].path, llm_items) {
+                enriched_decisions.append(item);
             }
         }
+        if len(enriched_decisions) > 0 {
+            outcome.decisions = enriched_decisions;
+            outcome.mode = "hybrid";
+        }
+    } except ByLLMError as e {
+        outcome.reason = docs_fallback_reason(str(e));
+    } except RuntimeError as e {
+        outcome.reason = docs_fallback_reason(str(e));
+    } except ValueError as e {
+        outcome.reason = docs_fallback_reason(str(e));
+    } except TypeError as e {
+        outcome.reason = docs_fallback_reason(str(e));
+    } except OSError as e {
+        outcome.reason = docs_fallback_reason(str(e));
     }
-    return WorkflowDocsContext(files=docs, decisions=decisions);
+    return outcome;
 }
 
-
-def build_trace(repo_summary_name: str, meeting_summary_text: str, file_count: int) -> list[WorkflowTraceStep] {
-    return [
-        WorkflowTraceStep(stage="stage_1", agent="Repo Mapper Agent", status="done", started_at="", finished_at="", detail="Mapped repo structure for " + repo_summary_name + "."),
-        WorkflowTraceStep(stage="stage_1", agent="Meeting Interpreter Agent", status="done", started_at="", finished_at="", detail="Parsed meeting context: " + meeting_summary_text),
-        WorkflowTraceStep(stage="stage_1", agent="Code Search Agent", status="done", started_at="", finished_at="", detail="Ranked " + str(file_count) + " relevant files."),
-        WorkflowTraceStep(stage="stage_1", agent="Docs Sync Agent", status="done", started_at="", finished_at="", detail="Pulled project docs into context."),
-        WorkflowTraceStep(stage="stage_1", agent="Decision Memory Agent", status="done", started_at="", finished_at="", detail="Updated session and project memory."),
-        WorkflowTraceStep(stage="stage_1_merge", agent="Context Graph Builder", status="done", started_at="", finished_at="", detail="Merged stage 1 outputs into the unified project context graph."),
-        WorkflowTraceStep(stage="stage_2", agent="Context Resolver Agent", status="done", started_at="", finished_at="", detail="Resolved vague request language to concrete files and graph focus paths."),
-        WorkflowTraceStep(stage="stage_2", agent="Blocker Detector Agent", status="done", started_at="", finished_at="", detail="Surfaced requirement gaps, risky assumptions, and missing contracts."),
-        WorkflowTraceStep(stage="stage_2", agent="Dependency Impact Agent", status="done", started_at="", finished_at="", detail="Predicted downstream impact across workflow, graph, and UI surfaces."),
-        WorkflowTraceStep(stage="stage_2", agent="Test Gap Agent", status="done", started_at="", finished_at="", detail="Suggested unit, integration, and e2e coverage targets."),
-        WorkflowTraceStep(stage="stage_2_merge", agent="Planning Context Merger", status="done", started_at="", finished_at="", detail="Merged Stage 2 reasoning into the execution planning context."),
-        WorkflowTraceStep(stage="stage_3", agent="Action Planner Agent", status="done", started_at="", finished_at="", detail="Generated a staged execution order and next-step plan."),
-        WorkflowTraceStep(stage="stage_3", agent="Ticket Writer Agent", status="done", started_at="", finished_at="", detail="Created ticket-ready tasks with acceptance criteria and likely files."),
-        WorkflowTraceStep(stage="stage_3", agent="Standup Agent", status="done", started_at="", finished_at="", detail="Prepared a concise done, next, blockers update."),
-        WorkflowTraceStep(stage="stage_3", agent="Handoff Agent", status="done", started_at="", finished_at="", detail="Prepared next-developer handoff notes with risks and next actions."),
-        WorkflowTraceStep(stage="stage_3", agent="PR Review Prep Agent", status="done", started_at="", finished_at="", detail="Prepared review scope, hotspots, and reviewer checklist."),
-        WorkflowTraceStep(stage="stage_3_merge", agent="Output Bundle Merger", status="done", started_at="", finished_at="", detail="Merged Stage 3 artifacts into the final structured workflow bundle.")
-    ];
+def enrich_action_plan(
+    request: WorkflowRequest,
+    planning: ExecutionPlanningContext,
+    merged_files: list[FileMatch],
+    draft: ActionPlan
+) -> ActionPlanOutcome {
+    outcome: ActionPlanOutcome = ActionPlanOutcome(plan=draft);
+    if not llm_available() {
+        outcome.mode = "fallback";
+        outcome.reason = llm_unavailable_reason();
+        return outcome;
+    }
+    try {
+        outcome.plan = llm_action_plan(request, planning, limited_files(merged_files, 12), draft);
+        outcome.mode = "llm";
+    } except ByLLMError as e {
+        outcome.mode = "fallback";
+        outcome.reason = action_plan_fallback_reason(str(e));
+    } except RuntimeError as e {
+        outcome.mode = "fallback";
+        outcome.reason = action_plan_fallback_reason(str(e));
+    } except ValueError as e {
+        outcome.mode = "fallback";
+        outcome.reason = action_plan_fallback_reason(str(e));
+    } except TypeError as e {
+        outcome.mode = "fallback";
+        outcome.reason = action_plan_fallback_reason(str(e));
+    } except OSError as e {
+        outcome.mode = "fallback";
+        outcome.reason = action_plan_fallback_reason(str(e));
+    }
+    return outcome;
 }
 
+def enrich_action_tasks(
+    request: WorkflowRequest,
+    planning: ExecutionPlanningContext,
+    merged_files: list[FileMatch],
+    meeting_summary: MeetingSummary,
+    draft: list[TaskItem]
+) -> TasksOutcome {
+    outcome: TasksOutcome = TasksOutcome(tasks=draft);
+    if not llm_available() {
+        outcome.mode = "fallback";
+        outcome.reason = llm_unavailable_reason();
+        return outcome;
+    }
+    try {
+        outcome.tasks = llm_action_tasks(request, planning, limited_files(merged_files, 12), meeting_summary, draft);
+        outcome.mode = "llm";
+    } except ByLLMError as e {
+        outcome.mode = "fallback";
+        outcome.reason = tasks_fallback_reason(str(e));
+    } except RuntimeError as e {
+        outcome.mode = "fallback";
+        outcome.reason = tasks_fallback_reason(str(e));
+    } except ValueError as e {
+        outcome.mode = "fallback";
+        outcome.reason = tasks_fallback_reason(str(e));
+    } except TypeError as e {
+        outcome.mode = "fallback";
+        outcome.reason = tasks_fallback_reason(str(e));
+    } except OSError as e {
+        outcome.mode = "fallback";
+        outcome.reason = tasks_fallback_reason(str(e));
+    }
+    return outcome;
+}
+
+def enrich_tickets(
+    request: WorkflowRequest,
+    planning: ExecutionPlanningContext,
+    tasks: list[TaskItem],
+    merged_files: list[FileMatch],
+    draft: list[GeneratedTicket]
+) -> TicketsOutcome {
+    outcome: TicketsOutcome = TicketsOutcome(tickets=draft);
+    if not llm_available() {
+        outcome.mode = "fallback";
+        outcome.reason = llm_unavailable_reason();
+        return outcome;
+    }
+    try {
+        outcome.tickets = llm_write_tickets(request, planning, tasks, limited_files(merged_files, 12), draft);
+        outcome.mode = "llm";
+    } except ByLLMError as e {
+        outcome.mode = "fallback";
+        outcome.reason = tickets_fallback_reason(str(e));
+    } except RuntimeError as e {
+        outcome.mode = "fallback";
+        outcome.reason = tickets_fallback_reason(str(e));
+    } except ValueError as e {
+        outcome.mode = "fallback";
+        outcome.reason = tickets_fallback_reason(str(e));
+    } except TypeError as e {
+        outcome.mode = "fallback";
+        outcome.reason = tickets_fallback_reason(str(e));
+    } except OSError as e {
+        outcome.mode = "fallback";
+        outcome.reason = tickets_fallback_reason(str(e));
+    }
+    return outcome;
+}
+
+def enrich_standup(
+    request: WorkflowRequest,
+    planning: ExecutionPlanningContext,
+    tasks: list[TaskItem],
+    trace: list[WorkflowTraceStep],
+    meeting_summary: MeetingSummary,
+    draft: StandupUpdateData
+) -> StandupOutcome {
+    outcome: StandupOutcome = StandupOutcome(standup=draft);
+    if not llm_available() {
+        outcome.mode = "fallback";
+        outcome.reason = llm_unavailable_reason();
+        return outcome;
+    }
+    try {
+        outcome.standup = llm_generate_standup(request, planning, tasks, trace, meeting_summary, draft);
+        outcome.mode = "llm";
+    } except ByLLMError as e {
+        outcome.mode = "fallback";
+        outcome.reason = standup_fallback_reason(str(e));
+    } except RuntimeError as e {
+        outcome.mode = "fallback";
+        outcome.reason = standup_fallback_reason(str(e));
+    } except ValueError as e {
+        outcome.mode = "fallback";
+        outcome.reason = standup_fallback_reason(str(e));
+    } except TypeError as e {
+        outcome.mode = "fallback";
+        outcome.reason = standup_fallback_reason(str(e));
+    } except OSError as e {
+        outcome.mode = "fallback";
+        outcome.reason = standup_fallback_reason(str(e));
+    }
+    return outcome;
+}
+
+def enrich_handoff(
+    request: WorkflowRequest,
+    planning: ExecutionPlanningContext,
+    tasks: list[TaskItem],
+    merged_files: list[FileMatch],
+    draft: HandoffNoteData
+) -> HandoffOutcome {
+    outcome: HandoffOutcome = HandoffOutcome(handoff=draft);
+    if not llm_available() {
+        outcome.mode = "fallback";
+        outcome.reason = llm_unavailable_reason();
+        return outcome;
+    }
+    try {
+        outcome.handoff = llm_generate_handoff(request, planning, tasks, limited_files(merged_files, 12), draft);
+        outcome.mode = "llm";
+    } except ByLLMError as e {
+        outcome.mode = "fallback";
+        outcome.reason = handoff_fallback_reason(str(e));
+    } except RuntimeError as e {
+        outcome.mode = "fallback";
+        outcome.reason = handoff_fallback_reason(str(e));
+    } except ValueError as e {
+        outcome.mode = "fallback";
+        outcome.reason = handoff_fallback_reason(str(e));
+    } except TypeError as e {
+        outcome.mode = "fallback";
+        outcome.reason = handoff_fallback_reason(str(e));
+    } except OSError as e {
+        outcome.mode = "fallback";
+        outcome.reason = handoff_fallback_reason(str(e));
+    }
+    return outcome;
+}
+
+def enrich_review_scope(
+    request: WorkflowRequest,
+    planning: ExecutionPlanningContext,
+    tasks: list[TaskItem],
+    merged_files: list[FileMatch],
+    draft: ReviewScopeData
+) -> ReviewOutcome {
+    outcome: ReviewOutcome = ReviewOutcome(review=draft);
+    if not llm_available() {
+        outcome.mode = "fallback";
+        outcome.reason = llm_unavailable_reason();
+        return outcome;
+    }
+    try {
+        outcome.review = llm_prepare_review_scope(request, planning, tasks, limited_files(merged_files, 12), draft);
+        outcome.mode = "llm";
+    } except ByLLMError as e {
+        outcome.mode = "fallback";
+        outcome.reason = review_fallback_reason(str(e));
+    } except RuntimeError as e {
+        outcome.mode = "fallback";
+        outcome.reason = review_fallback_reason(str(e));
+    } except ValueError as e {
+        outcome.mode = "fallback";
+        outcome.reason = review_fallback_reason(str(e));
+    } except TypeError as e {
+        outcome.mode = "fallback";
+        outcome.reason = review_fallback_reason(str(e));
+    } except OSError as e {
+        outcome.mode = "fallback";
+        outcome.reason = review_fallback_reason(str(e));
+    }
+    return outcome;
+}
+
+def first_fallback_reason(trace: list[WorkflowTraceStep]) -> str {
+    for step in trace {
+        if step.fallback_reason {
+            return step.fallback_reason;
+        }
+    }
+    return "";
+}
+
+def aggregate_execution_mode(trace: list[WorkflowTraceStep]) -> str {
+    has_llm: bool = False;
+    has_hybrid: bool = False;
+    has_fallback: bool = False;
+    has_deterministic: bool = False;
+    for step in trace {
+        if step.execution_mode == "llm" {
+            has_llm = True;
+        } elif step.execution_mode == "hybrid" {
+            has_hybrid = True;
+        } elif step.execution_mode == "fallback" {
+            has_fallback = True;
+        } else {
+            has_deterministic = True;
+        }
+        if step.fallback_reason {
+            has_fallback = True;
+        }
+    }
+    if has_fallback {
+        return "fallback";
+    }
+    if has_hybrid or (has_llm and has_deterministic) {
+        return "hybrid";
+    }
+    if has_llm {
+        return "llm";
+    }
+    return "fallback";
+}
+
+def make_run_state(
+    request: WorkflowRequest,
+    kind: str,
+    summary: str,
+    trace: list[WorkflowTraceStep]
+) -> WorkflowRunState {
+    run_time: str = replace_text(replace_text(now_text(), " ", "T"), ":", "-");
+    execution_mode: str = aggregate_execution_mode(trace);
+    return WorkflowRunState(
+        run_id=kind + "-" + run_time,
+        mode=request.mode,
+        kind=kind,
+        status="completed",
+        summary=summary,
+        execution_mode=execution_mode,
+        model_name=(llm_model_name() if execution_mode in ["llm", "hybrid"] else ""),
+        fallback_reason=first_fallback_reason(trace)
+    );
+}
 
 def dir_area_label(segment: str) -> str {
     if segment in ["components", "component"] { return "UI Components"; }
@@ -168,8 +754,8 @@ def dir_area_confidence(label: str) -> float {
 def path_area_key(file_path: str) -> str {
     parts: list[str] = file_path.split("/");
     if len(parts) >= 3 {
-        seg0: str = parts[0].lower();
-        seg1: str = parts[1].lower();
+        seg0: str = lower_text(parts[0]);
+        seg1: str = lower_text(parts[1]);
         if seg0 in ["src", "app", "lib"] {
             label: str = dir_area_label(seg1);
             if label != seg1 {
@@ -178,15 +764,13 @@ def path_area_key(file_path: str) -> str {
         }
     }
     if len(parts) >= 2 {
-        seg: str = parts[0].lower();
+        seg: str = lower_text(parts[0]);
         label: str = dir_area_label(seg);
         if label != seg {
             return seg;
         }
     }
     return "";
-
-
 }
 
 def build_ownership(repo_summary_name: str, files: list[FileMatch]) -> list[OwnershipGuess] {
@@ -200,7 +784,7 @@ def build_ownership(repo_summary_name: str, files: list[FileMatch]) -> list[Owne
             continue;
         }
         parts: list[str] = key.split("/");
-        seg: str = parts[-1];
+        seg: str = parts[len(parts) - 1];
         label: str = dir_area_label(seg);
         if label in seen_labels {
             continue;
@@ -209,31 +793,44 @@ def build_ownership(repo_summary_name: str, files: list[FileMatch]) -> list[Owne
         seen_labels.append(label);
         team: str = dir_area_team(label);
         conf: float = dir_area_confidence(label);
-        ownership.append(OwnershipGuess(
-            area=label,
-            owner=team,
-            confidence=conf,
-            rationale="Inferred from files under " + key + "/ in " + repo_summary_name + "."
-        ));
+        ownership.append(
+            OwnershipGuess(
+                area=label,
+                owner=team,
+                confidence=conf,
+                rationale="Inferred from files under " + key + "/ in " + repo_summary_name + "."
+            )
+        );
         if len(ownership) >= 5 {
             break;
         }
     }
 
     if len(ownership) == 0 and len(files) > 0 {
-        ownership.append(OwnershipGuess(area="Project", owner="Core Team", confidence=0.50, rationale="Ownership inferred from top-level structure in " + repo_summary_name + "."));
+        ownership.append(
+            OwnershipGuess(
+                area="Project",
+                owner="Core Team",
+                confidence=0.50,
+                rationale="Ownership inferred from top-level structure in " + repo_summary_name + "."
+            )
+        );
     }
 
     return ownership;
 }
 
-
 def to_planning_insight(title: str, detail: str, severity: str, category: str) -> PlanningInsight {
     return PlanningInsight(title=title, detail=detail, severity=severity, category=category);
 }
 
-
-def build_planning(request: WorkflowRequest, files: list[FileMatch], blockers: list[BlockerItem], graph: ProjectContextGraph, meeting_summary: MeetingSummary) -> ExecutionPlanningContext {
+def build_planning(
+    request: WorkflowRequest,
+    files: list[FileMatch],
+    blockers: list[BlockerItem],
+    graph: ProjectContextGraph,
+    meeting_summary: MeetingSummary
+) -> ExecutionPlanningContext {
     resolved_areas: list[str] = [];
     impacts: list[str] = [];
     test_gaps: list[str] = [];
@@ -282,103 +879,581 @@ def build_planning(request: WorkflowRequest, files: list[FileMatch], blockers: l
     );
 }
 
+def build_bundle_summary(kind: str, repo_summary: RepoSummary, files: list[FileMatch], tasks: list[TaskItem], blockers: list[BlockerItem]) -> str {
+    if kind == "context_preview" {
+        return "Context preview ready for " + repo_summary.project_name + " with " + str(len(files)) + " grounded files.";
+    }
+    workstreams: int = len(tasks);
+    if workstreams == 0 {
+        workstreams = len(files);
+    }
+    blocker_text: str = "No blockers surfaced.";
+    if len(blockers) == 1 {
+        blocker_text = "1 blocker still needs follow-up.";
+    } elif len(blockers) > 1 {
+        blocker_text = str(len(blockers)) + " blockers still need follow-up.";
+    }
+    return repo_summary.project_name + " is organized around " + str(workstreams) + " next-step workstreams. " + blocker_text;
+}
 
-def:pub run_workflow(repo_path: str, meeting_text: str, prompt: str, mode: str = "feature_plan") -> WorkflowResultBundle {
+def object_value(source: Any, key: str) -> Any | None {
+    if source is None {
+        return None;
+    }
+    if type(source) == dict {
+        if key in source {
+            return source[key];
+        }
+        return None;
+    }
     try {
-        return _run_workflow_impl(repo_path, meeting_text, prompt, mode);
-    } except Exception as e {
-        print("[RepoGhost] run_workflow error: " + str(e));
-        print_exc();
-        raise e;
+        return getattr(source, key);
+    } except AttributeError {
+        return None;
+    } except TypeError {
+        return None;
     }
 }
 
-def _run_workflow_impl(repo_path: str, meeting_text: str, prompt: str, mode: str = "feature_plan") -> WorkflowResultBundle {
-    request: WorkflowRequest = WorkflowRequest(repo_path=repo_path, meeting_text=meeting_text, prompt=prompt, mode=mode);
-    bundle: WorkflowResultBundle = get_demo_bundle();
+def object_text(source: Any, key: str) -> str {
+    value: Any | None = object_value(source, key);
+    if value is None {
+        return "";
+    }
+    return str(value);
+}
 
-    repo_summary: RepoSummary = run_repo_mapper(request.repo_path);
+def object_items(source: Any, key: str) -> list[Any] {
+    value: Any | None = object_value(source, key);
+    if type(value) == list {
+        return cast(list[Any], value);
+    }
+    return [];
+}
+
+def join_any_items(items: list[Any], separator: str = ", ") -> str {
+    text: str = "";
+    for item in items {
+        if text {
+            text = text + separator;
+        }
+        text = text + str(item);
+    }
+    return text;
+}
+
+def artifact_context_text(bundle: Any) -> str {
+    lines: list[str] = [];
+    run_state: Any | None = object_value(bundle, "run_state");
+    repo_summary: Any | None = object_value(bundle, "repo_summary");
+    meeting_summary: Any | None = object_value(bundle, "meeting_summary");
+    handoff: Any | None = object_value(bundle, "handoff");
+    standup: Any | None = object_value(bundle, "standup");
+    review: Any | None = object_value(bundle, "review");
+
+    if object_text(run_state, "summary") {
+        lines.append("Run summary: " + object_text(run_state, "summary"));
+    }
+    if object_text(repo_summary, "project_name") or object_text(repo_summary, "overview") {
+        lines.append("Project: " + object_text(repo_summary, "project_name") + " | " + object_text(repo_summary, "overview"));
+    }
+    if object_text(meeting_summary, "summary") {
+        lines.append("Transcript summary: " + object_text(meeting_summary, "summary"));
+    }
+    for item in object_items(bundle, "decisions")[0:6] {
+        lines.append("Decision: " + object_text(item, "title") + " | " + object_text(item, "detail"));
+    }
+    for item in object_items(bundle, "blockers")[0:6] {
+        lines.append("Blocker: " + object_text(item, "title") + " | " + object_text(item, "detail"));
+    }
+    for item in object_items(bundle, "tasks")[0:6] {
+        lines.append(
+            "Task: " + object_text(item, "title")
+            + " | " + object_text(item, "summary")
+            + " | files=" + join_any_items(object_items(item, "likely_files"))
+        );
+    }
+    for item in object_items(bundle, "tickets")[0:5] {
+        lines.append("Ticket: " + object_text(item, "title") + " | " + object_text(item, "summary"));
+    }
+    if object_text(handoff, "summary") {
+        lines.append("Handoff: " + object_text(handoff, "summary"));
+    }
+    for item in object_items(handoff, "next_actions")[0:4] {
+        lines.append("Handoff next: " + str(item));
+    }
+    for item in object_items(standup, "done")[0:3] {
+        lines.append("Standup done: " + str(item));
+    }
+    for item in object_items(standup, "next")[0:4] {
+        lines.append("Standup next: " + str(item));
+    }
+    for item in object_items(review, "risk_hotspots")[0:5] {
+        lines.append("Review hotspot: " + str(item));
+    }
+    for item in object_items(bundle, "relevant_files")[0:10] {
+        lines.append("Relevant file: " + object_text(item, "path") + " | " + object_text(item, "rationale"));
+    }
+    for item in object_items(bundle, "trace")[0:10] {
+        lines.append("Trace: " + object_text(item, "agent") + " | " + object_text(item, "detail"));
+    }
+    return join_lines(lines);
+}
+
+def deterministic_artifact_answer(prompt: str, bundle: Any) -> str {
+    answer_lines: list[str] = [];
+    run_state: Any | None = object_value(bundle, "run_state");
+    meeting_summary: Any | None = object_value(bundle, "meeting_summary");
+    if object_text(run_state, "summary") {
+        answer_lines.append(object_text(run_state, "summary"));
+    }
+    if object_text(meeting_summary, "summary") {
+        answer_lines.append("Transcript: " + object_text(meeting_summary, "summary"));
+    }
+    bundle_tasks: list[Any] = object_items(bundle, "tasks");
+    if len(bundle_tasks) > 0 {
+        answer_lines.append("Top task: " + object_text(bundle_tasks[0], "title") + " — " + object_text(bundle_tasks[0], "summary"));
+    }
+    bundle_tickets: list[Any] = object_items(bundle, "tickets");
+    if len(bundle_tickets) > 0 {
+        answer_lines.append("Top ticket: " + object_text(bundle_tickets[0], "title") + " — " + object_text(bundle_tickets[0], "summary"));
+    }
+    bundle_blockers: list[Any] = object_items(bundle, "blockers");
+    if len(bundle_blockers) > 0 {
+        answer_lines.append("Key blocker: " + object_text(bundle_blockers[0], "title") + " — " + object_text(bundle_blockers[0], "detail"));
+    }
+    if len(answer_lines) == 0 {
+        answer_lines.append("No completed run artifacts are available yet.");
+    }
+    return "Answering from the current run for \"" + prompt + "\":\n" + join_lines(answer_lines);
+}
+
+def execute_workflow(request: WorkflowRequest, kind: str) -> WorkflowResultBundle {
+    configure_request_llm(request.user_api_key, request.user_model);
+    full_generation: bool = kind == "full_run";
+    model_name: str = llm_model_name() if llm_available() else "";
+    bundle: WorkflowResultBundle = WorkflowResultBundle();
+    trace: list[WorkflowTraceStep] = [];
+    content_cache: dict[str, str] = {};
+
+    scanned_files: list[FileMatch] = scan_repo(request.repo_path);
+    repo_summary: RepoSummary = run_repo_mapper(request.repo_path, scanned_files, content_cache);
     meeting_summary: MeetingSummary = run_meeting_interpreter(request.meeting_text);
-    relevant_files: list[FileMatch] = run_code_search(request.repo_path, request.prompt, request.meeting_text);
-    docs_context: WorkflowDocsContext = collect_workflow_docs(request.repo_path);
-    doc_files: list[FileMatch] = docs_context.files;
-    doc_decisions: list[DecisionItem] = docs_context.decisions;
+    relevant_files: list[FileMatch] = run_code_search(request.repo_path, request.prompt, request.meeting_text, scanned_files);
+    docs_result: DocsSyncResult = run_docs_sync(request.repo_path, content_cache);
+    doc_files: list[FileMatch] = docs_result.files;
+    doc_decisions: list[DecisionItem] = docs_result.decisions;
+
+    repo_outcome: RepoSummaryOutcome = RepoSummaryOutcome(summary=repo_summary);
+    meeting_outcome: MeetingSummaryOutcome = MeetingSummaryOutcome(summary=meeting_summary);
+    code_search_outcome: FileMatchesOutcome = FileMatchesOutcome(files=relevant_files);
+    docs_outcome: DecisionItemsOutcome = DecisionItemsOutcome(decisions=doc_decisions);
+
+    repo_future: Future[RepoSummaryOutcome] | None = None;
+    meeting_future: Future[MeetingSummaryOutcome] | None = None;
+    code_search_future: Future[FileMatchesOutcome] | None = None;
+    docs_future: Future[DecisionItemsOutcome] | None = None;
+
+    if len(scanned_files) > 0 {
+        if llm_available() {
+            repo_future = flow enrich_repo_summary(request.repo_path, scanned_files, repo_summary);
+        } else {
+            repo_outcome.mode = "fallback";
+            repo_outcome.reason = llm_unavailable_reason();
+        }
+    }
+    if request.meeting_text {
+        if llm_available() {
+            meeting_future = flow enrich_meeting_summary(request.meeting_text, meeting_summary);
+        } else {
+            meeting_outcome.mode = "fallback";
+            meeting_outcome.reason = llm_unavailable_reason();
+        }
+    }
+    if llm_available() and len(relevant_files) > 0 and (request.prompt or request.meeting_text) {
+        code_search_future = flow rerank_relevant_files(request.prompt, request.meeting_text, relevant_files);
+    }
+    if llm_available() and len(doc_files) > 0 {
+        docs_future = flow enrich_doc_decisions(request.repo_path, doc_files, doc_decisions, content_cache);
+    }
+
+    if repo_future is not None {
+        repo_outcome = cast(RepoSummaryOutcome, wait repo_future);
+        repo_summary = repo_outcome.summary;
+    }
+    trace.append(
+        trace_step(
+            "stage_1",
+            "Repo Mapper Agent",
+            "Mapped repo structure for " + repo_summary.project_name + " across " + str(len(scanned_files)) + " scanned files.",
+            repo_outcome.mode,
+            repo_outcome.reason,
+            model_name
+        )
+    );
+
+    if meeting_future is not None {
+        meeting_outcome = cast(MeetingSummaryOutcome, wait meeting_future);
+        meeting_summary = meeting_outcome.summary;
+    }
+    trace.append(
+        trace_step(
+            "stage_1",
+            "Meeting Interpreter Agent",
+            "Parsed meeting context: " + meeting_summary.summary,
+            meeting_outcome.mode,
+            meeting_outcome.reason,
+            model_name
+        )
+    );
+
+    if code_search_future is not None {
+        code_search_outcome = cast(FileMatchesOutcome, wait code_search_future);
+        relevant_files = code_search_outcome.files;
+    }
+    trace.append(
+        trace_step(
+            "stage_1",
+            "Code Search Agent",
+            "Ranked " + str(len(relevant_files)) + " relevant files from deterministic repo search.",
+            code_search_outcome.mode,
+            code_search_outcome.reason,
+            model_name
+        )
+    );
+
+    if docs_future is not None {
+        docs_outcome = cast(DecisionItemsOutcome, wait docs_future);
+        doc_decisions = docs_outcome.decisions;
+    }
+    trace.append(
+        trace_step(
+            "stage_1",
+            "Docs Sync Agent",
+            "Pulled " + str(len(doc_files)) + " documentation files into project context.",
+            docs_outcome.mode,
+            docs_outcome.reason,
+            model_name
+        )
+    );
 
     merged_files: list[FileMatch] = relevant_files + doc_files;
     merged_decisions: list[DecisionItem] = meeting_summary.decisions + doc_decisions;
     merged_blockers: list[BlockerItem] = meeting_summary.blockers;
-    if len(merged_blockers) == 0 {
-        merged_blockers = bundle.blockers;
+
+    ownership: list[OwnershipGuess] = build_ownership(repo_summary.project_name, merged_files);
+    planning_seed: ExecutionPlanningContext = ExecutionPlanningContext();
+    graph_seed: ProjectContextGraph = build_stage_one_seed_graph(
+        request,
+        repo_summary,
+        meeting_summary,
+        merged_files,
+        merged_decisions,
+        merged_blockers,
+        ownership,
+        planning_seed,
+        trace
+    );
+    trace.append(
+        trace_step(
+            "stage_1_merge",
+            "Context Graph Builder",
+            "Merged stage 1 outputs into the unified project context graph.",
+            "deterministic"
+        )
+    );
+
+    planning: ExecutionPlanningContext = build_planning(request, merged_files, merged_blockers, graph_seed, meeting_summary);
+    trace.append(
+        trace_step(
+            "stage_2",
+            "Context Resolver Agent",
+            "Resolved vague request language to " + str(len(planning.resolved_areas)) + " concrete files or graph focus paths.",
+            "deterministic"
+        )
+    );
+    trace.append(
+        trace_step(
+            "stage_2",
+            "Blocker Detector Agent",
+            "Surfaced " + str(len(planning.blocker_titles)) + " blocker and dependency signals.",
+            "deterministic"
+        )
+    );
+    trace.append(
+        trace_step(
+            "stage_2",
+            "Dependency Impact Agent",
+            "Predicted downstream impact across " + str(len(planning.impacts)) + " likely change surfaces.",
+            "deterministic"
+        )
+    );
+    trace.append(
+        trace_step(
+            "stage_2",
+            "Test Gap Agent",
+            "Suggested " + str(len(planning.test_gaps)) + " coverage targets for risky paths.",
+            "deterministic"
+        )
+    );
+    trace.append(
+        trace_step(
+            "stage_2_merge",
+            "Planning Context Merger",
+            "Merged Stage 2 reasoning into the execution planning context.",
+            "deterministic"
+        )
+    );
+
+    action_plan: ActionPlan = build_action_plan(request, planning, merged_files);
+    action_plan_mode: str = "deterministic";
+    action_plan_reason: str = "";
+    tasks: list[TaskItem] = build_action_tasks(request, planning, merged_files, meeting_summary);
+    tasks_mode: str = "deterministic";
+    tasks_reason: str = "";
+    action_plan_future: Future[ActionPlanOutcome] | None = None;
+    tasks_future: Future[TasksOutcome] | None = None;
+    if full_generation {
+        if llm_available() {
+            action_plan_future = flow enrich_action_plan(request, planning, merged_files, action_plan);
+            tasks_future = flow enrich_action_tasks(request, planning, merged_files, meeting_summary, tasks);
+        } else {
+            action_plan_mode = "fallback";
+            action_plan_reason = llm_unavailable_reason();
+            tasks_mode = "fallback";
+            tasks_reason = llm_unavailable_reason();
+        }
     }
+
+    if action_plan_future is not None {
+        action_plan_outcome: ActionPlanOutcome = cast(ActionPlanOutcome, wait action_plan_future);
+        action_plan = action_plan_outcome.plan;
+        action_plan_mode = action_plan_outcome.mode;
+        action_plan_reason = action_plan_outcome.reason;
+    }
+    trace.append(
+        trace_step(
+            "stage_3",
+            "Action Planner Agent",
+            "Prepared the action plan and staged execution order.",
+            action_plan_mode,
+            action_plan_reason,
+            model_name
+        )
+    );
+
+    if tasks_future is not None {
+        tasks_outcome: TasksOutcome = cast(TasksOutcome, wait tasks_future);
+        tasks = tasks_outcome.tasks;
+        tasks_mode = tasks_outcome.mode;
+        tasks_reason = tasks_outcome.reason;
+    }
+
+    tickets: list[GeneratedTicket] = write_tickets(request, planning, tasks, merged_files);
+    tickets_mode: str = "deterministic";
+    tickets_reason: str = "";
+    tickets_future: Future[TicketsOutcome] | None = None;
+    handoff: HandoffNoteData = generate_handoff(request, planning, tasks, merged_files);
+    handoff_mode: str = "deterministic";
+    handoff_reason: str = "";
+    handoff_future: Future[HandoffOutcome] | None = None;
+    review: ReviewScopeData = prepare_review_scope(request, planning, tasks, merged_files);
+    review_mode: str = "deterministic";
+    review_reason: str = "";
+    review_future: Future[ReviewOutcome] | None = None;
+    if full_generation {
+        if llm_available() {
+            tickets_future = flow enrich_tickets(request, planning, tasks, merged_files, tickets);
+            handoff_future = flow enrich_handoff(request, planning, tasks, merged_files, handoff);
+            review_future = flow enrich_review_scope(request, planning, tasks, merged_files, review);
+        } else {
+            tickets_mode = "fallback";
+            tickets_reason = llm_unavailable_reason();
+            handoff_mode = "fallback";
+            handoff_reason = llm_unavailable_reason();
+            review_mode = "fallback";
+            review_reason = llm_unavailable_reason();
+        }
+    }
+
+    if tickets_future is not None {
+        tickets_outcome: TicketsOutcome = cast(TicketsOutcome, wait tickets_future);
+        tickets = tickets_outcome.tickets;
+        tickets_mode = tickets_outcome.mode;
+        tickets_reason = tickets_outcome.reason;
+    }
+    trace.append(
+        trace_step(
+            "stage_3",
+            "Ticket Writer Agent",
+            "Created " + str(len(tickets)) + " ticket-ready execution items.",
+            tickets_mode,
+            tickets_reason,
+            model_name
+        )
+    );
+
+    standup: StandupUpdateData = generate_standup(request, planning, tasks, trace, meeting_summary);
+    standup_mode: str = "deterministic";
+    standup_reason: str = "";
+    standup_future: Future[StandupOutcome] | None = None;
+    if full_generation {
+        if llm_available() {
+            standup_future = flow enrich_standup(request, planning, tasks, trace, meeting_summary, standup);
+        } else {
+            standup_mode = "fallback";
+            standup_reason = llm_unavailable_reason();
+        }
+    }
+
+    if standup_future is not None {
+        standup_outcome: StandupOutcome = cast(StandupOutcome, wait standup_future);
+        standup = standup_outcome.standup;
+        standup_mode = standup_outcome.mode;
+        standup_reason = standup_outcome.reason;
+    }
+    trace.append(
+        trace_step(
+            "stage_3",
+            "Standup Agent",
+            "Prepared the standup update with done, next, and blocker sections.",
+            standup_mode,
+            standup_reason,
+            model_name
+        )
+    );
+
+    if handoff_future is not None {
+        handoff_outcome: HandoffOutcome = cast(HandoffOutcome, wait handoff_future);
+        handoff = handoff_outcome.handoff;
+        handoff_mode = handoff_outcome.mode;
+        handoff_reason = handoff_outcome.reason;
+    }
+    trace.append(
+        trace_step(
+            "stage_3",
+            "Handoff Agent",
+            "Prepared next-developer handoff notes with risks and next actions.",
+            handoff_mode,
+            handoff_reason,
+            model_name
+        )
+    );
+
+    if review_future is not None {
+        review_outcome: ReviewOutcome = cast(ReviewOutcome, wait review_future);
+        review = review_outcome.review;
+        review_mode = review_outcome.mode;
+        review_reason = review_outcome.reason;
+    }
+    trace.append(
+        trace_step(
+            "stage_3",
+            "PR Review Prep Agent",
+            "Prepared review scope, hotspots, and reviewer checklist.",
+            review_mode,
+            review_reason,
+            model_name
+        )
+    );
+
+    trace.append(
+        trace_step(
+            "stage_3_merge",
+            "Output Bundle Merger",
+            "Merged Stage 3 artifacts into the structured workflow bundle.",
+            "deterministic"
+        )
+    );
 
     bundle.repo_summary = repo_summary;
     bundle.meeting_summary = meeting_summary;
     bundle.relevant_files = merged_files;
+    bundle.ownership = ownership;
     bundle.decisions = merged_decisions;
     bundle.blockers = merged_blockers;
-    bundle.ownership = build_ownership(repo_summary.project_name, merged_files);
-    bundle.context_graph = build_stage_one_graph(
-        request,
-        repo_summary,
-        meeting_summary,
-        merged_files,
-        merged_decisions,
-        merged_blockers,
-        bundle.ownership,
-        bundle.planning,
-        bundle.tasks,
-        bundle.tickets,
-        bundle.handoff,
-        bundle.standup,
-        bundle.review,
-        bundle.trace
-    );
-    bundle.planning = build_planning(request, merged_files, merged_blockers, bundle.context_graph, meeting_summary);
-    bundle.action_plan = build_action_plan(request, bundle.planning, merged_files);
-    bundle.tasks = build_action_tasks(request, bundle.planning, merged_files, meeting_summary);
-    bundle.tickets = write_tickets(request, bundle.planning, bundle.tasks, merged_files);
-    bundle.standup = generate_standup(request, bundle.planning, bundle.tasks, bundle.trace, meeting_summary);
-    bundle.handoff = generate_handoff(request, bundle.planning, bundle.tasks, merged_files);
-    bundle.review = prepare_review_scope(request, bundle.planning, bundle.tasks, merged_files);
-    bundle.trace = build_trace(repo_summary.project_name, meeting_summary.summary, len(merged_files));
-    bundle.context_graph = build_stage_one_graph(
-        request,
-        repo_summary,
-        meeting_summary,
-        merged_files,
-        merged_decisions,
-        merged_blockers,
-        bundle.ownership,
-        bundle.planning,
-        bundle.tasks,
-        bundle.tickets,
-        bundle.handoff,
-        bundle.standup,
-        bundle.review,
-        bundle.trace
-    );
+    bundle.planning = planning;
+    bundle.action_plan = action_plan;
+    bundle.tasks = tasks;
+    bundle.tickets = tickets;
+    bundle.standup = standup;
+    bundle.handoff = handoff;
+    bundle.review = review;
 
-    if request.prompt {
-        bundle.action_plan.headline = "Current request: " + request.prompt;
-    }
-    if request.mode == "standup" {
-        bundle.action_plan.headline = "Current request: generate a standup update grounded in repo, meeting, graph, planning, and Stage 3 output context.";
-    } elif request.mode == "handoff" {
-        bundle.action_plan.headline = "Current request: prepare a handoff grounded in repo, meeting, graph, planning, and Stage 3 output context.";
-    } elif request.mode == "review_prep" {
-        bundle.action_plan.headline = "Current request: prepare review scope from live stage 1 outputs, Stage 2 reasoning, and Stage 3 review prep artifacts.";
-    } elif request.mode == "meeting_to_tickets" {
-        bundle.action_plan.headline = "Current request: turn meeting context into execution-ready tickets and next actions.";
+    if full_generation {
+        remember_session(request, bundle);
+        memory_snapshot: dict = update_project_memory(request.repo_path, bundle);
+        updated_at = str(memory_snapshot["updated_at"]);
+        bundle.review.checklist = bundle.review.checklist + ["Memory updated at " + updated_at];
+        trace.append(
+            trace_step(
+                "stage_3_merge",
+                "Decision Memory Agent",
+                "Updated session and project memory for the completed full run.",
+                "deterministic"
+            )
+        );
     }
 
-    remember_session(request, bundle);
-    memory_snapshot: dict = update_project_memory(request.repo_path, bundle);
-    updated_at = str(memory_snapshot["updated_at"]);
-    bundle.review.checklist = bundle.review.checklist + ["Memory updated at " + updated_at];
+    bundle.trace = trace;
+    bundle.context_graph = finalize_context_graph(graph_seed, tasks, tickets, handoff, standup, review, trace);
+    bundle.run_state = make_run_state(
+        request,
+        kind,
+        build_bundle_summary(kind, repo_summary, merged_files, tasks, merged_blockers),
+        trace
+    );
     return bundle;
 }
 
+def:pub preview_context(repo_path: str, meeting_text: str, mode: str = "feature_plan", user_api_key: str = "", user_model: str = "") -> WorkflowResultBundle {
+    request: WorkflowRequest = WorkflowRequest(
+        repo_path=repo_path,
+        meeting_text=meeting_text,
+        prompt="",
+        mode=mode,
+        user_api_key=user_api_key,
+        user_model=user_model
+    );
+    return execute_workflow(request, "context_preview");
+}
+
+def:pub run_workflow(repo_path: str, meeting_text: str, prompt: str, mode: str = "feature_plan", user_api_key: str = "", user_model: str = "") -> WorkflowResultBundle {
+    request: WorkflowRequest = WorkflowRequest(
+        repo_path=repo_path,
+        meeting_text=meeting_text,
+        prompt=prompt,
+        mode=mode,
+        user_api_key=user_api_key,
+        user_model=user_model
+    );
+    return execute_workflow(request, "full_run");
+}
 
 def:pub get_memory_snapshot(repo_path: str) -> dict {
     return get_project_memory(repo_path);
+}
+
+def:pub query_run_artifacts(prompt: str, bundle: Any, user_api_key: str = "", user_model: str = "") -> str {
+    if not prompt {
+        return "Add a follow-up question after the run completes.";
+    }
+    configure_request_llm(user_api_key, user_model);
+    artifact_context: str = slice_text(artifact_context_text(bundle), 12000);
+    if llm_available() {
+        try {
+            return llm_query_run_artifacts(slice_text(prompt, 1200), artifact_context);
+        } except ByLLMError {
+            return deterministic_artifact_answer(prompt, bundle);
+        } except RuntimeError {
+            return deterministic_artifact_answer(prompt, bundle);
+        } except ValueError {
+            return deterministic_artifact_answer(prompt, bundle);
+        } except TypeError {
+            return deterministic_artifact_answer(prompt, bundle);
+        } except OSError {
+            return deterministic_artifact_answer(prompt, bundle);
+        }
+    }
+    return deterministic_artifact_answer(prompt, bundle);
 }

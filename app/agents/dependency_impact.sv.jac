@@ -8,6 +8,14 @@ obj ImpactInsight {
     has risk: str = "medium";
 }
 
+def last_path_part(text: str) -> str {
+    parts: list[str] = text.split("/");
+    if len(parts) > 0 {
+        return parts[len(parts) - 1];
+    }
+    return text;
+}
+
 def impact_risk(path: str) -> str {
     lower: str = path.lower();
     high_patterns: list[str] = ["/orchestration/", "/workflow", "/graph/", "/services/", "/api/", "/routes/", "/agents/"];
@@ -23,8 +31,7 @@ def impact_risk(path: str) -> str {
         }
     }
     entry_names: list[str] = ["main.py", "main.ts", "main.js", "app.py", "manage.py", "wsgi.py", "asgi.py", "server.py", "index.ts", "index.js"];
-    parts: list[str] = lower.split("/");
-    filename: str = parts[len(parts) - 1];
+    filename: str = last_path_part(lower);
     if filename in entry_names {
         return "medium";
     }

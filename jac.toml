@@ -17,6 +17,16 @@ host = "127.0.0.1"
 plugins = ["tailwindcss()", "repoghostClientResolve(buildDir)", "generateHtmlPlugin(buildDir)"]
 lib_imports = ["import tailwindcss from '@tailwindcss/vite'", "import repoghostClientResolve from '../../../vite.repoghost.resolve.mjs'", "import generateHtmlPlugin from '../../../vite.generate-html.mjs'"]
 
+[plugins.byllm]
+system_prompt = """You are RepoGhost, a repo-grounded engineering copilot. Use only the provided repo, meeting, planning, and file context. Never invent files, owners, blockers, tickets, or decisions beyond the supplied evidence. Return concise structured outputs that fit the requested schema exactly."""
+
+[plugins.byllm.model]
+default_model = "gpt-4o-mini"
+
+[plugins.byllm.call_params]
+temperature = 0.2
+max_tokens = 0
+
 [tool.repoghost.desktop]
 widget_mode = "compact-floating"
 workspace_mode = "expanded"
@@ -32,6 +42,7 @@ react-error-boundary = "^5.0.0"
 react-hook-form = "^7.71.0"
 zod = "^4.3.6"
 "@hookform/resolvers" = "^5.2.2"
+jac-client-node = "1.0.7"
 
 [dependencies.npm.dev]
 "@tailwindcss/vite" = "^4.1.17"
@@ -41,6 +52,7 @@ vite = "^6.4.1"
 typescript = "^5.3.3"
 "@types/react" = "^18.2.0"
 "@types/react-dom" = "^18.2.0"
+"@jac-client/dev-deps" = "2.0.0"
 
 [dev-dependencies]
 watchdog = ">=3.0.0"

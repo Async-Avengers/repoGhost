@@ -16,9 +16,14 @@ def term_score(lowered_path: str, terms: list[str]) -> float {
 }
 
 def path_score(lowered_path: str) -> float {
-    parts: list[str] = lowered_path.split("/");
-    filename: str = parts[len(parts) - 1];
-    base: str = filename.split(".")[0] if "." in filename else filename;
+    filename: str = last_path_part(lowered_path);
+    base: str = filename;
+    if "." in filename {
+        base_parts: list[str] = filename.split(".");
+        if len(base_parts) > 0 {
+            base = base_parts[0];
+        }
+    }
     entry_names: list[str] = ["main", "index", "app", "server", "mod", "lib", "wsgi", "asgi", "manage", "program"];
     if base in entry_names {
         return 0.12;
@@ -40,18 +45,17 @@ def path_score(lowered_path: str) -> float {
     return 0.0;
 }
 
-def insert_sorted(ranked: list[FileMatch], candidate: FileMatch) -> None {
-    for (index, item) in enumerate(ranked) {
-        if candidate.score > item.score {
-            ranked.insert(index, candidate);
-            return;
-        }
-    }
-    ranked.append(candidate);
+def file_score(item: FileMatch) -> float {
+    return item.score;
 }
 
-def:pub search_repo(repo_path: str, prompt: str, meeting_text: str) -> list[FileMatch] {
-    scanned: list[FileMatch] = scan_repo(repo_path);
+def:pub search_repo(
+    repo_path: str,
+    prompt: str,
+    meeting_text: str,
+    scanned_files: list[FileMatch] | None = None
+) -> list[FileMatch] {
+    scanned: list[FileMatch] = scanned_files if scanned_files is not None else scan_repo(repo_path);
     ranked: list[FileMatch] = [];
     combined_text: str = prompt + " " + meeting_text;
     terms: list[str] = split_terms(combined_text.lower());
@@ -67,7 +71,8 @@ def:pub search_repo(repo_path: str, prompt: str, meeting_text: str) -> list[File
             rationale=rationale_prefix + item.path,
             kind=item.kind
         );
-        insert_sorted(ranked, candidate);
+        ranked.append(candidate);
     }
+    ranked.sort(key=file_score, reverse=True);
     return ranked;
 }

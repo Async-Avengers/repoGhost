@@ -12,4 +12,5 @@
 
 jaclang==0.13.5
 jac-client==0.3.11
+byllm==0.6.0
 websockets  # required by uvicorn for WebSocket support

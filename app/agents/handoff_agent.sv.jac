@@ -1,3 +1,4 @@
+import from app.services.llm_runtime { llm }
 import from app.models.core { FileMatch }
 import from app.models.workflow { WorkflowRequest, ExecutionPlanningContext }
 import from app.models.outputs { HandoffNoteData, TaskItem }
@@ -31,3 +32,11 @@ def:pub generate_handoff(request: WorkflowRequest, planning: ExecutionPlanningCo
         next_actions=next_actions
     );
 }
+
+def:pub llm_generate_handoff(
+    _request: WorkflowRequest,
+    _planning: ExecutionPlanningContext,
+    _tasks: list[TaskItem],
+    _files: list[FileMatch],
+    _draft: HandoffNoteData
+) -> HandoffNoteData by llm();

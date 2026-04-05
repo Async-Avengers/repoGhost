@@ -1,3 +1,4 @@
+import from app.services.llm_runtime { llm }
 import from app.models.core { FileMatch }
 import from app.models.workflow { WorkflowRequest, ExecutionPlanningContext }
 import from app.models.outputs { ReviewScopeData, TaskItem }
@@ -39,3 +40,11 @@ def:pub prepare_review_scope(request: WorkflowRequest, planning: ExecutionPlanni
         checklist=checklist
     );
 }
+
+def:pub llm_prepare_review_scope(
+    _request: WorkflowRequest,
+    _planning: ExecutionPlanningContext,
+    _tasks: list[TaskItem],
+    _files: list[FileMatch],
+    _draft: ReviewScopeData
+) -> ReviewScopeData by llm();

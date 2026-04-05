@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>RepoGhost (Dev)</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   </head>
   <body>
     <div id="__jac_root"></div>
@@ -11,9 +12,13 @@
     <script type="module">
       if (import.meta.hot) {
         function report(d) {
-          try { import.meta.hot.send("jac:client-error", d); } catch (e) {}
+          try {
+            import.meta.hot.send("jac:client-error", d);
+          } catch (e) {
+            console.debug("jac:client-error send failed", e);
+          }
         }
-        window.addEventListener("error", function (e) {
+        globalThis.addEventListener("error", function (e) {
           report({
             type: e.error ? e.error.constructor.name : "Error",
             message: e.error ? e.error.message : e.message,
@@ -23,7 +28,7 @@
             column: e.colno || null
           });
         });
-        window.addEventListener("unhandledrejection", function (e) {
+        globalThis.addEventListener("unhandledrejection", function (e) {
           var r = e.reason;
           report({
             type: r instanceof Error ? r.constructor.name : "UnhandledPromiseRejection",

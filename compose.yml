@@ -1,0 +1,7 @@
+services:
+  repoghost:
+    build: .
+    ports:
+      - "8000:8000"
+      - "8001:8001"
+    restart: unless-stopped

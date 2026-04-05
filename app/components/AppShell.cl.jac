@@ -13,16 +13,16 @@ async def fetchWorkflowBundle(repoPath: str, meetingText: str, prompt: str, mode
 }
 
 def:pub AppShell() -> JsxElement {
-    has repoPath: str = "c:/workspace/permitted-repo";
-    has meetingText: str = "We need to turn meeting context into tickets, blockers, and a handoff. The team wants a visible multi-agent workflow, repo-aware outputs, and a polished demo-ready desktop sidecar.";
-    has prompt: str = "Turn this meeting into tickets and show likely files.";
-    has draftPrompt: str = prompt;
+    has repoPath: str = "";
+    has meetingText: str = "";
+    has prompt: str = "";
+    has draftPrompt: str = "";
     has mode: str = "feature_plan";
-    has loading: bool = True;
+    has loading: bool = False;
     has error: str = "";
     has bundle: Any = None;
     has activeWidgetTab: str = "context";
-    has lastRunLabel: str = "Bootstrapping RepoGhost workspace";
+    has lastRunLabel: str = "Ready";
 
     async def loadBundle() -> None {
         loading = True;
@@ -60,7 +60,9 @@ def:pub AppShell() -> JsxElement {
     }
 
     async can with entry {
-        await loadBundle();
+        if repoPath {
+            await loadBundle();
+        }
     }
 
     async def submit(nextPrompt: str = "") -> None {

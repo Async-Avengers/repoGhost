@@ -13,51 +13,71 @@ def file_basename(path: str) -> str {
     return parts[-1];
 }
 
-def file_ext_label(path: str) -> str {
-    lower: str = path.lower();
-    if lower.endswith(".py") {
-        return "py";
-    }
-    if lower.endswith(".jsx") {
-        return "jsx";
-    }
-    if lower.endswith(".tsx") {
-        return "tsx";
-    }
-    if lower.endswith(".ts") {
-        return "ts";
-    }
-    if lower.endswith(".js") {
-        return "js";
-    }
-    if lower.endswith(".jac") {
-        return "jac";
-    }
-    dot_parts: list[str] = path.split(".");
+def file_ext_label(p: str) -> str {
+    lower: str = p.lower();
+    if lower.endswith(".py") or lower.endswith(".pyi") { return "py"; }
+    if lower.endswith(".tsx") { return "tsx"; }
+    if lower.endswith(".jsx") { return "jsx"; }
+    if lower.endswith(".ts") { return "ts"; }
+    if lower.endswith(".js") or lower.endswith(".mjs") or lower.endswith(".cjs") { return "js"; }
+    if lower.endswith(".sv.jac") { return "sv.jac"; }
+    if lower.endswith(".cl.jac") { return "cl.jac"; }
+    if lower.endswith(".jac") { return "jac"; }
+    if lower.endswith(".go") { return "go"; }
+    if lower.endswith(".rs") { return "rs"; }
+    if lower.endswith(".java") { return "java"; }
+    if lower.endswith(".kt") or lower.endswith(".kts") { return "kt"; }
+    if lower.endswith(".cs") { return "cs"; }
+    if lower.endswith(".cpp") or lower.endswith(".cc") or lower.endswith(".cxx") { return "cpp"; }
+    if lower.endswith(".c") { return "c"; }
+    if lower.endswith(".rb") { return "rb"; }
+    if lower.endswith(".php") { return "php"; }
+    if lower.endswith(".swift") { return "swift"; }
+    if lower.endswith(".dart") { return "dart"; }
+    if lower.endswith(".vue") { return "vue"; }
+    if lower.endswith(".svelte") { return "svelte"; }
+    if lower.endswith(".html") or lower.endswith(".htm") { return "html"; }
+    if lower.endswith(".css") { return "css"; }
+    if lower.endswith(".scss") or lower.endswith(".sass") { return "scss"; }
+    if lower.endswith(".json") { return "json"; }
+    if lower.endswith(".toml") { return "toml"; }
+    if lower.endswith(".yaml") or lower.endswith(".yml") { return "yaml"; }
+    if lower.endswith(".md") or lower.endswith(".mdx") { return "md"; }
+    if lower.endswith(".sh") or lower.endswith(".bash") { return "sh"; }
+    dot_parts: list[str] = p.split(".");
     if len(dot_parts) > 1 {
         ext: str = dot_parts[-1];
-        if len(ext) <= 4 {
+        if len(ext) <= 5 {
             return ext;
         }
     }
     return "file";
 }
 
-def file_ext_badge_class(path: str) -> str {
-    lower: str = path.lower();
-    if lower.endswith(".py") {
-        return "rounded px-1.5 py-0.5 text-[10px] font-medium bg-blue-500/20 text-blue-300";
-    }
-    if lower.endswith(".jsx") or lower.endswith(".tsx") {
-        return "rounded px-1.5 py-0.5 text-[10px] font-medium bg-cyan-500/20 text-cyan-300";
-    }
-    if lower.endswith(".js") or lower.endswith(".ts") {
-        return "rounded px-1.5 py-0.5 text-[10px] font-medium bg-yellow-500/20 text-yellow-300";
-    }
-    if lower.endswith(".jac") {
-        return "rounded px-1.5 py-0.5 text-[10px] font-medium bg-accent/20 text-accent";
-    }
-    return "rounded px-1.5 py-0.5 text-[10px] font-medium bg-border text-muted";
+def file_ext_badge_class(p: str) -> str {
+    lower: str = p.lower();
+    base: str = "rounded px-1.5 py-0.5 text-[10px] font-medium ";
+    if lower.endswith(".py") or lower.endswith(".pyi") { return base + "bg-blue-500/20 text-blue-300"; }
+    if lower.endswith(".tsx") or lower.endswith(".jsx") { return base + "bg-cyan-500/20 text-cyan-300"; }
+    if lower.endswith(".ts") or lower.endswith(".js") or lower.endswith(".mjs") { return base + "bg-yellow-500/20 text-yellow-300"; }
+    if lower.endswith(".jac") { return base + "bg-accent/20 text-accent"; }
+    if lower.endswith(".go") { return base + "bg-teal-500/20 text-teal-300"; }
+    if lower.endswith(".rs") { return base + "bg-orange-500/20 text-orange-300"; }
+    if lower.endswith(".java") or lower.endswith(".kt") or lower.endswith(".kts") { return base + "bg-red-500/20 text-red-300"; }
+    if lower.endswith(".cs") { return base + "bg-purple-500/20 text-purple-300"; }
+    if lower.endswith(".cpp") or lower.endswith(".cc") or lower.endswith(".c") { return base + "bg-indigo-500/20 text-indigo-300"; }
+    if lower.endswith(".rb") { return base + "bg-rose-500/20 text-rose-300"; }
+    if lower.endswith(".php") { return base + "bg-violet-500/20 text-violet-300"; }
+    if lower.endswith(".swift") { return base + "bg-orange-400/20 text-orange-200"; }
+    if lower.endswith(".dart") { return base + "bg-sky-500/20 text-sky-300"; }
+    if lower.endswith(".vue") { return base + "bg-emerald-500/20 text-emerald-300"; }
+    if lower.endswith(".svelte") { return base + "bg-orange-600/20 text-orange-300"; }
+    if lower.endswith(".html") or lower.endswith(".htm") { return base + "bg-amber-500/20 text-amber-300"; }
+    if lower.endswith(".css") or lower.endswith(".scss") or lower.endswith(".sass") { return base + "bg-pink-500/20 text-pink-300"; }
+    if lower.endswith(".json") or lower.endswith(".toml") or lower.endswith(".yaml") or lower.endswith(".yml") { return base + "bg-slate-500/20 text-slate-300"; }
+    if lower.endswith(".md") or lower.endswith(".mdx") { return base + "bg-gray-500/20 text-gray-300"; }
+    if lower.endswith(".sh") or lower.endswith(".bash") { return base + "bg-lime-500/20 text-lime-300"; }
+    return base + "bg-border text-muted";
 }
 
 def avatar_color_class(idx: int) -> str {
@@ -127,6 +147,7 @@ def:pub WidgetShell(
     blockers: list[Any] = [];
     tasks: list[Any] = [];
     projectName: str = "";
+    projectType: str = "";
     if bundle {
         files = bundle.relevant_files or [];
         blockers = bundle.blockers or [];
@@ -134,6 +155,9 @@ def:pub WidgetShell(
         if bundle.repo_summary {
             if bundle.repo_summary.project_name {
                 projectName = bundle.repo_summary.project_name;
+            }
+            if bundle.repo_summary.project_type {
+                projectType = bundle.repo_summary.project_type;
             }
         }
     }
@@ -177,7 +201,7 @@ def:pub WidgetShell(
 
     async def rescanRepo() -> None {
         if onSubmit {
-            await invoke_async_callback(onSubmit, draftPrompt);
+            await invoke_async_callback(onSubmit, "Scan the repo and show relevant files, ownership map, and project context.");
         }
     }
 
@@ -215,24 +239,22 @@ def:pub WidgetShell(
 
     fileRows: list[JsxElement] = [];
     for item in files {
-        if len(fileRows) >= 3 {
-            break;
-        }
         basename: str = file_basename(item.path);
         extLabel: str = file_ext_label(item.path);
         extClass: str = file_ext_badge_class(item.path);
         fileRows.append(
-            <div key={item.path} className="flex items-center gap-2 py-1.5">
-                <span className={extClass}>{extLabel}</span>
-                <span className="text-sm text-foreground truncate">{basename}</span>
+            <div key={item.path} className="flex items-center gap-2 py-1 min-w-0">
+                <span className={extClass + " shrink-0"}>{extLabel}</span>
+                <span className="text-xs text-foreground truncate" title={item.path}>{item.path}</span>
             </div>
         );
     }
     if len(fileRows) == 0 {
         fileRows.append(
-            <div key="no-files" className="py-1.5 text-sm text-muted">No files scanned yet.</div>
+            <div key="no-files" className="py-1.5 text-sm text-muted">No files scanned yet. Enter a repo path and click Rescan Repo.</div>
         );
     }
+    fileCountLabel: str = str(len(files)) + " files";
 
     ownerRows: list[JsxElement] = [];
     ownerIdx: int = 0;
@@ -261,6 +283,13 @@ def:pub WidgetShell(
 
     projectPlaceholder: str = projectName if projectName else "Enter repo path...";
 
+    projectTypeBadge: JsxElement = <div />;
+    if projectType {
+        projectTypeBadge = <div className="mt-1.5 inline-flex items-center rounded-full border border-accent/30 bg-accent/10 px-2.5 py-0.5 text-[11px] font-medium text-accent">
+            {projectType}
+        </div>;
+    }
+
     contextContent: JsxElement = <div className="space-y-4">
         <div>
             {section_label("Identified Project:")}
@@ -271,10 +300,14 @@ def:pub WidgetShell(
                 placeholder={projectPlaceholder}
                 className="w-full rounded-lg border border-border bg-panel-soft px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted focus:border-accent transition-colors"
             />
+            {projectTypeBadge}
         </div>
         <div>
-            {section_label("Active Files:")}
-            <div className="space-y-0.5">{fileRows}</div>
+            <div className="mb-2 flex items-center justify-between">
+                {section_label("Active Files:")}
+                <span className="text-[10px] text-muted">{fileCountLabel}</span>
+            </div>
+            <div className="max-h-52 overflow-y-auto space-y-0.5 pr-1">{fileRows}</div>
         </div>
         <div>
             {section_label("Ownership Map:")}

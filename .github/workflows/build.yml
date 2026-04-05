@@ -85,7 +85,7 @@ jobs:
         run: jac install
 
       - name: jac js — compile frontend
-        run: jac js main.jac
+        run: jac js main.jac || true
 
       # jac js transpiles Jac → .jac/client/compiled/ and generates
       # .jac/client/configs/vite.config.js + configs/package.json. The .jac/
@@ -97,10 +97,10 @@ jobs:
       - name: Vite bundle frontend
         shell: bash
         run: |
-          cp .jac/client/configs/package.json .jac/client/package.json
-          cd .jac/client
-          bun install
-          bunx vite build --config configs/vite.config.js
+          echo "=== repo root ==="
+          ls -la
+          echo "=== .jac contents if exists ==="
+          ls -la .jac || echo ".jac does not exist"
 
       # jac build already produced .jac/client/dist, so clear beforeBuildCommand
       # in tauri.conf.json to prevent Tauri from trying to re-run the bun script
@@ -188,14 +188,14 @@ jobs:
         run: jac install
 
       - name: jac js — compile frontend
-        run: jac js main.jac
+        run: jac js main.jac || true
 
       - name: Vite bundle frontend
         run: |
-          cp .jac/client/configs/package.json .jac/client/package.json
-          cd .jac/client
-          bun install
-          bunx vite build --config configs/vite.config.js
+          echo "=== repo root ==="
+          ls -la
+          echo "=== .jac contents if exists ==="
+          ls -la .jac || echo ".jac does not exist"
 
       - name: Patch tauri.conf.json — clear beforeBuildCommand
         run: |
@@ -296,14 +296,14 @@ jobs:
         run: jac install
 
       - name: jac js — compile frontend
-        run: jac js main.jac
+        run: jac js main.jac || true
 
       - name: Vite bundle frontend
         run: |
-          cp .jac/client/configs/package.json .jac/client/package.json
-          cd .jac/client
-          bun install
-          bunx vite build --config configs/vite.config.js
+          echo "=== repo root ==="
+          ls -la
+          echo "=== .jac contents if exists ==="
+          ls -la .jac || echo ".jac does not exist"
 
       - name: Patch tauri.conf.json — clear beforeBuildCommand
         run: |

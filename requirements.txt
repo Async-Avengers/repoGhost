@@ -10,4 +10,5 @@
 #     jac check main.jac
 #     jac start --dev main.jac
 
-jaclang==0.13.1
+jaclang==0.13.5
+jac-client==0.3.11

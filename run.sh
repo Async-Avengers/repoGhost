@@ -4,7 +4,10 @@
 set -e
 cd "$(dirname "$0")"
 
-JAC="$HOME/.local/share/uv/tools/jaclang/bin/jac"
+JAC="${HOME}/.local/share/uv/tools/jaclang/bin/jac"
+if [ ! -x "$JAC" ]; then
+  JAC="$(command -v jac)"
+fi
 APP_URL="http://localhost:8001/static/index.html"
 
 # Build the frontend if dist/index.html is missing

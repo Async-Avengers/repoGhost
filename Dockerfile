@@ -18,10 +18,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy project files
 COPY . .
 
-# Install Jac dependencies and validate
-RUN jac install && jac check main.jac
+# Install Jac dependencies and build (compiles .jac files + client frontend)
+RUN jac install && jac build main.jac
+
+RUN chmod +x run.sh
 
 # UI on 8000, API on 8001
 EXPOSE 8000 8001
 
-CMD ["jac", "start", "main.jac"]
+CMD ["./run.sh"]

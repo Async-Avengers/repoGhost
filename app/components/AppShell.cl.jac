@@ -51,8 +51,150 @@ async def fetch_workflow_bundle(repo_path: str, meeting_text: str, prompt: str, 
     return result;
 }
 
+def _pick(src: Any, key: str) -> Any {
+    if src is None {
+        return None;
+    }
+    try {
+        return src[key];  # jac:ignore[W2001]
+    } except Exception {
+        return None;
+    }
+}
+
+def _pick_str(src: Any, key: str) -> str {
+    val: Any = _pick(src, key);
+    if val is None {
+        return "";
+    }
+    return str(val);
+}
+
+def _pick_list(src: Any, key: str) -> list[Any] {
+    val: Any = _pick(src, key);
+    if val is None {
+        return [];
+    }
+    try {
+        is_arr: bool = bool(Array.isArray(val));  # jac:ignore[W2001]
+        if is_arr {
+            return val;
+        }
+    } except Exception {
+        return [];
+    }
+    return [];
+}
+
+def _str_list(src: Any, key: str) -> list[str] {
+    items: list[Any] = _pick_list(src, key);
+    result: list[str] = [];
+    for item in items {
+        if item is not None {
+            result.append(str(item));
+        }
+    }
+    return result;
+}
+
+def build_artifact_payload(bundle: Any) -> dict {
+    # Build a minimal, cycle-free dict with only the fields the server
+    # reads in artifact_context_text / deterministic_artifact_answer.
+    # Stringifying the full bundle can blow the JS call stack on some
+    # runtimes, so we hand-trim the tree here.
+    if bundle is None {
+        return {};
+    }
+
+    run_state: Any = _pick(bundle, "run_state");
+    repo_summary: Any = _pick(bundle, "repo_summary");
+    meeting_summary: Any = _pick(bundle, "meeting_summary");
+    handoff: Any = _pick(bundle, "handoff");
+    standup: Any = _pick(bundle, "standup");
+    review: Any = _pick(bundle, "review");
+
+    decisions_out: list[dict] = [];
+    for item in _pick_list(bundle, "decisions") {
+        decisions_out.append({
+            "title": _pick_str(item, "title"),
+            "detail": _pick_str(item, "detail")
+        });
+    }
+
+    blockers_out: list[dict] = [];
+    for item in _pick_list(bundle, "blockers") {
+        blockers_out.append({
+            "title": _pick_str(item, "title"),
+            "detail": _pick_str(item, "detail")
+        });
+    }
+
+    tasks_out: list[dict] = [];
+    for item in _pick_list(bundle, "tasks") {
+        tasks_out.append({
+            "title": _pick_str(item, "title"),
+            "summary": _pick_str(item, "summary"),
+            "likely_files": _str_list(item, "likely_files")
+        });
+    }
+
+    tickets_out: list[dict] = [];
+    for item in _pick_list(bundle, "tickets") {
+        tickets_out.append({
+            "title": _pick_str(item, "title"),
+            "summary": _pick_str(item, "summary")
+        });
+    }
+
+    files_out: list[dict] = [];
+    for item in _pick_list(bundle, "relevant_files") {
+        files_out.append({
+            "path": _pick_str(item, "path"),
+            "rationale": _pick_str(item, "rationale")
+        });
+    }
+
+    trace_out: list[dict] = [];
+    for item in _pick_list(bundle, "trace") {
+        trace_out.append({
+            "agent": _pick_str(item, "agent"),
+            "detail": _pick_str(item, "detail")
+        });
+    }
+
+    return {
+        "run_state": {"summary": _pick_str(run_state, "summary")},
+        "repo_summary": {
+            "project_name": _pick_str(repo_summary, "project_name"),
+            "overview": _pick_str(repo_summary, "overview")
+        },
+        "meeting_summary": {"summary": _pick_str(meeting_summary, "summary")},
+        "decisions": decisions_out,
+        "blockers": blockers_out,
+        "tasks": tasks_out,
+        "tickets": tickets_out,
+        "handoff": {
+            "summary": _pick_str(handoff, "summary"),
+            "next_actions": _str_list(handoff, "next_actions")
+        },
+        "standup": {
+            "done": _str_list(standup, "done"),
+            "next": _str_list(standup, "next")
+        },
+        "review": {"risk_hotspots": _str_list(review, "risk_hotspots")},
+        "relevant_files": files_out,
+        "trace": trace_out
+    };
+}
+
 async def fetch_run_answer(prompt: str, bundle: Any, user_api_key: str, user_model: str) -> str {
-    bundle_str: str = str(JSON.stringify(bundle));  # jac:ignore[W2001]
+    payload: dict = build_artifact_payload(bundle);
+    bundle_str: str = "";
+    try {
+        bundle_str = str(JSON.stringify(payload));  # jac:ignore[W2001]
+    } except Exception {
+        bundle_str = "{}";
+    }
     answer: str = await query_run_artifacts(prompt, bundle_str, user_api_key, user_model);
     return answer;
 }

@@ -84,6 +84,10 @@ jobs:
       - name: jac install — restore dependencies
         run: jac install
 
+      - name: jac js — generate client
+        shell: bash
+        run: jac js main.jac
+
       - name: Vite bundle frontend
         shell: bash
         run: |
@@ -175,6 +179,9 @@ jobs:
 
       - name: jac install — restore dependencies
         run: jac install
+
+      - name: jac js — generate client
+        run: jac js main.jac
 
       - name: Vite bundle frontend
         run: |
@@ -279,6 +286,9 @@ jobs:
 
       - name: jac install — restore dependencies
         run: jac install
+
+      - name: jac js — generate client
+        run: jac js main.jac
 
       - name: Vite bundle frontend
         run: |

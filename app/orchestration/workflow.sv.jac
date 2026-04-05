@@ -1,4 +1,5 @@
 import from os { path }
+import from traceback { print_exc }
 import from app.models.workflow { WorkflowRequest, WorkflowTraceStep, ExecutionPlanningContext, PlanningInsight }
 import from app.models.core { DecisionItem, BlockerItem, FileMatch, MeetingSummary, OwnershipGuess }
 import from app.models.outputs {
@@ -283,6 +284,16 @@ def build_planning(request: WorkflowRequest, files: list[FileMatch], blockers: l
 
 
 def:pub run_workflow(repo_path: str, meeting_text: str, prompt: str, mode: str = "feature_plan") -> WorkflowResultBundle {
+    try {
+        return _run_workflow_impl(repo_path, meeting_text, prompt, mode);
+    } except Exception as e {
+        print("[RepoGhost] run_workflow error: " + str(e));
+        print_exc();
+        raise e;
+    }
+}
+
+def _run_workflow_impl(repo_path: str, meeting_text: str, prompt: str, mode: str = "feature_plan") -> WorkflowResultBundle {
     request: WorkflowRequest = WorkflowRequest(repo_path=repo_path, meeting_text=meeting_text, prompt=prompt, mode=mode);
     bundle: WorkflowResultBundle = get_demo_bundle();
 

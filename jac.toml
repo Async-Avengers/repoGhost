@@ -4,6 +4,9 @@ version = "0.1.0"
 description = "RepoGhost - desktop-ready AI developer sidecar built with Jac"
 entry-point = "main.jac"
 
+[serve]
+port = 8001
+
 [plugins.client]
 enabled = true
 
@@ -11,8 +14,8 @@ enabled = true
 enabled = true
 port = 8001
 host = "127.0.0.1"
-plugins = ["tailwindcss()", "repoghostClientResolve(buildDir)"]
-lib_imports = ["import tailwindcss from '@tailwindcss/vite'", "import repoghostClientResolve from '../../../vite.repoghost.resolve.mjs'"]
+plugins = ["tailwindcss()", "repoghostClientResolve(buildDir)", "generateHtmlPlugin(buildDir)"]
+lib_imports = ["import tailwindcss from '@tailwindcss/vite'", "import repoghostClientResolve from '../../../vite.repoghost.resolve.mjs'", "import generateHtmlPlugin from '../../../vite.generate-html.mjs'"]
 
 [tool.repoghost.desktop]
 widget_mode = "compact-floating"

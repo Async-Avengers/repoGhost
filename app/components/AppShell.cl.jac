@@ -1,6 +1,7 @@
 import from typing { Any }
 sv include app.orchestration.workflow;
 import from app.components.WidgetShell { WidgetShell }
+import from app.components.Toast { ToastStack }
 
 def mark_used(value: Any) -> None {
     if value {
@@ -23,6 +24,19 @@ def:pub AppShell() -> JsxElement {
     has bundle: Any = None;
     has activeWidgetTab: str = "context";
     has lastRunLabel: str = "Ready";
+    has toasts: list[Any] = [];
+    has nextToastId: int = 0;
+
+    def addToast(msg: str, kind: str = "error") -> None {
+        newId: int = nextToastId;
+        toasts = toasts + [{"id": newId, "msg": msg, "kind": kind}];
+        nextToastId = nextToastId + 1;
+        mark_used(nextToastId);
+    }
+
+    def dismissToast(id: str) -> None {
+        toasts = [t for t in toasts if str(t["id"]) != id];
+    }
 
     async def loadBundle() -> None {
         loading = True;
@@ -40,21 +54,31 @@ def:pub AppShell() -> JsxElement {
             mark_used(error);
             lastRunLabel = "Workflow failed";
             mark_used(lastRunLabel);
+            addToast(str(e));
         } except RuntimeError as e {
             error = str(e);
             mark_used(error);
             lastRunLabel = "Workflow failed";
             mark_used(lastRunLabel);
+            addToast(str(e));
         } except TypeError as e {
             error = str(e);
             mark_used(error);
             lastRunLabel = "Workflow failed";
             mark_used(lastRunLabel);
+            addToast(str(e));
         } except OSError as e {
             error = str(e);
             mark_used(error);
             lastRunLabel = "Workflow failed";
             mark_used(lastRunLabel);
+            addToast(str(e));
+        } except Exception as e {
+            error = str(e);
+            mark_used(error);
+            lastRunLabel = "Workflow failed";
+            mark_used(lastRunLabel);
+            addToast(str(e));
         }
         loading = False;
     }
@@ -72,6 +96,8 @@ def:pub AppShell() -> JsxElement {
         }
         if not chosen {
             error = "Add a prompt before running the workflow.";
+            mark_used(error);
+            addToast("Add a prompt before running the workflow.");
             return;
         }
         prompt = chosen;
@@ -171,6 +197,7 @@ def:pub AppShell() -> JsxElement {
     handoffActions: list[str] = handoff_actions();
 
     return <div className="flex h-screen items-center justify-center bg-background overflow-hidden">
+        <ToastStack toasts={toasts} onDismiss={dismissToast} />
         <WidgetShell
             bundle={bundle}
             mode={mode}

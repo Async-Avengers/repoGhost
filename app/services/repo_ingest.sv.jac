@@ -1,4 +1,8 @@
 import from os { path, walk }
+import from re { match }
+import from subprocess { run, PIPE, DEVNULL }
+import from tempfile { mkdtemp }
+import from shutil { rmtree }
 import from app.models.outputs { RepoSummary }
 import from app.models.core { FileMatch }
 
@@ -10,6 +14,40 @@ glob IGNORE_DIRS: list[str] = [
 
 def should_skip_dir(name: str) -> bool {
     return name in IGNORE_DIRS or (name.startswith(".") and name not in [".github"]);
+}
+
+def is_github_url(repo_path: str) -> bool {
+    if not repo_path {
+        return False;
+    }
+    return match(r"^https?://github\.com/[^/\s]+/[^/\s]+(\.git)?(/.*)?$", repo_path.strip()) is not None;
+}
+
+def clone_github_repo(url: str) -> str {
+    tmp_dir: str = mkdtemp(prefix="repoghost_gh_");
+    clean_url: str = url.strip();
+    if not clean_url.endswith(".git") {
+        clean_url = clean_url + ".git";
+    }
+    try {
+        proc = run(
+            ["git", "clone", "--depth=1", "--single-branch", clean_url, tmp_dir],
+            stdout=DEVNULL,
+            stderr=PIPE,
+            timeout=60
+        );
+        if proc.returncode != 0 {
+            rmtree(tmp_dir, ignore_errors=True);
+            return "";
+        }
+    } except OSError {
+        rmtree(tmp_dir, ignore_errors=True);
+        return "";
+    } except Exception {
+        rmtree(tmp_dir, ignore_errors=True);
+        return "";
+    }
+    return tmp_dir;
 }
 
 def should_include_file(name: str) -> bool {
@@ -160,42 +198,42 @@ def detect_project_type(repo_path: str, files: list[FileMatch], content_cache: d
 
         if name == "package.json" {
             text: str = read_file_head(full_path, content_cache);
-            if "\"next\"" in text { return "Next.js App"; }
-            if "\"nuxt\"" in text { return "Nuxt.js App"; }
-            if "\"react\"" in text { return "React App"; }
-            if "\"vue\"" in text { return "Vue App"; }
-            if "\"@sveltejs/kit\"" in text or "\"svelte\"" in text { return "Svelte App"; }
-            if "\"express\"" in text or "\"fastify\"" in text or "\"koa\"" in text { return "Node.js Service"; }
-            if "\"electron\"" in text { return "Electron App"; }
-            return "Node.js Project";
+            if "\"next\"" in text { return "▲ Next.js App"; }
+            if "\"nuxt\"" in text { return "💚 Nuxt.js App"; }
+            if "\"react\"" in text { return "⚛️ React App"; }
+            if "\"vue\"" in text { return "💚 Vue App"; }
+            if "\"@sveltejs/kit\"" in text or "\"svelte\"" in text { return "🔥 Svelte App"; }
+            if "\"express\"" in text or "\"fastify\"" in text or "\"koa\"" in text { return "🟢 Node.js Service"; }
+            if "\"electron\"" in text { return "⚡ Electron App"; }
+            return "🟢 Node.js Project";
         }
-        if name == "cargo.toml" { return "Rust Project"; }
-        if name == "go.mod" { return "Go Project"; }
-        if name == "pubspec.yaml" { return "Flutter App"; }
-        if name == "pom.xml" { return "Java (Maven) Project"; }
-        if name in ["build.gradle", "build.gradle.kts"] { return "Java/Kotlin (Gradle) Project"; }
-        if name == "jac.toml" { return "Jac Project"; }
+        if name == "cargo.toml" { return "🦀 Rust Project"; }
+        if name == "go.mod" { return "🐹 Go Project"; }
+        if name == "pubspec.yaml" { return "💙 Flutter App"; }
+        if name == "pom.xml" { return "☕ Java (Maven) Project"; }
+        if name in ["build.gradle", "build.gradle.kts"] { return "☕ Java/Kotlin (Gradle) Project"; }
+        if name == "jac.toml" { return "👻 Jac Project"; }
 
         if name == "pyproject.toml" {
             text: str = read_file_head(full_path, content_cache);
-            if "fastapi" in text { return "Python FastAPI Service"; }
-            if "django" in text { return "Python Django App"; }
-            if "flask" in text { return "Python Flask Service"; }
-            return "Python Project";
+            if "fastapi" in text { return "🐍 Python FastAPI Service"; }
+            if "django" in text { return "🐍 Python Django App"; }
+            if "flask" in text { return "🐍 Python Flask Service"; }
+            return "🐍 Python Project";
         }
         if name == "requirements.txt" {
             text: str = read_file_head(full_path, content_cache);
-            if "fastapi" in text { return "Python FastAPI Service"; }
-            if "django" in text { return "Python Django App"; }
-            if "flask" in text { return "Python Flask Service"; }
-            return "Python Project";
+            if "fastapi" in text { return "🐍 Python FastAPI Service"; }
+            if "django" in text { return "🐍 Python Django App"; }
+            if "flask" in text { return "🐍 Python Flask Service"; }
+            return "🐍 Python Project";
         }
         if name == "gemfile" {
             text: str = read_file_head(full_path, content_cache);
-            if "rails" in text { return "Ruby on Rails App"; }
-            return "Ruby Project";
+            if "rails" in text { return "🛤️ Ruby on Rails App"; }
+            return "💎 Ruby Project";
         }
-        if name == "composer.json" { return "PHP Project"; }
+        if name == "composer.json" { return "🐘 PHP Project"; }
     }
 
     ext_py: int = 0;
@@ -229,20 +267,20 @@ def detect_project_type(repo_path: str, files: list[FileMatch], content_cache: d
     }
 
     best: int = 0;
-    best_lang: str = "Software Project";
-    if ext_py > best { best = ext_py; best_lang = "Python Project"; }
-    if ext_go > best { best = ext_go; best_lang = "Go Project"; }
-    if ext_rs > best { best = ext_rs; best_lang = "Rust Project"; }
-    if ext_java > best { best = ext_java; best_lang = "Java Project"; }
-    if ext_kt > best { best = ext_kt; best_lang = "Kotlin Project"; }
-    if ext_ts > best { best = ext_ts; best_lang = "TypeScript Project"; }
-    if ext_js > best { best = ext_js; best_lang = "JavaScript Project"; }
-    if ext_cs > best { best = ext_cs; best_lang = "C# Project"; }
-    if ext_rb > best { best = ext_rb; best_lang = "Ruby Project"; }
-    if ext_php > best { best = ext_php; best_lang = "PHP Project"; }
-    if ext_swift > best { best = ext_swift; best_lang = "Swift Project"; }
-    if ext_dart > best { best = ext_dart; best_lang = "Dart Project"; }
-    if ext_jac > best { best_lang = "Jac Project"; }
+    best_lang: str = "💻 Software Project";
+    if ext_py > best { best = ext_py; best_lang = "🐍 Python Project"; }
+    if ext_go > best { best = ext_go; best_lang = "🐹 Go Project"; }
+    if ext_rs > best { best = ext_rs; best_lang = "🦀 Rust Project"; }
+    if ext_java > best { best = ext_java; best_lang = "☕ Java Project"; }
+    if ext_kt > best { best = ext_kt; best_lang = "🎯 Kotlin Project"; }
+    if ext_ts > best { best = ext_ts; best_lang = "🔷 TypeScript Project"; }
+    if ext_js > best { best = ext_js; best_lang = "🟡 JavaScript Project"; }
+    if ext_cs > best { best = ext_cs; best_lang = "🔷 C# Project"; }
+    if ext_rb > best { best = ext_rb; best_lang = "💎 Ruby Project"; }
+    if ext_php > best { best = ext_php; best_lang = "🐘 PHP Project"; }
+    if ext_swift > best { best = ext_swift; best_lang = "🍎 Swift Project"; }
+    if ext_dart > best { best = ext_dart; best_lang = "🎯 Dart Project"; }
+    if ext_jac > best { best_lang = "👻 Jac Project"; }
 
     return best_lang;
 }
@@ -297,29 +335,54 @@ def detect_frameworks(repo_path: str, files: list[FileMatch], content_cache: dic
 
 def:pub scan_repo(repo_path: str) -> list[FileMatch] {
     matches: list[FileMatch] = [];
-    if not repo_path or not path.exists(repo_path) {
+    if not repo_path {
         return matches;
     }
-    for (current_root, dirs, files) in walk(repo_path) {
-        kept_dirs: list[str] = [];
-        for dir_name in dirs {
-            if not should_skip_dir(dir_name) {
-                kept_dirs.append(dir_name);
-            }
+
+    effective_path: str = repo_path;
+    cloned_tmp: str = "";
+
+    if is_github_url(repo_path) {
+        cloned_tmp = clone_github_repo(repo_path);
+        if not cloned_tmp {
+            return matches;
         }
-        dirs.clear();
-        for dir_name in kept_dirs {
-            dirs.append(dir_name);
-        }
-        for file_name in files {
-            if not should_include_file(file_name) {
-                continue;
-            }
-            full_path = path.join(current_root, file_name);
-            rel_path: str = str(path.relpath(full_path, repo_path)).replace("\\", "/");
-            matches.append(scored_match(rel_path, file_name));
+        effective_path = cloned_tmp;
+    } else {
+        if not path.exists(repo_path) {
+            return matches;
         }
     }
+
+    try {
+        for (current_root, dirs, files) in walk(effective_path) {
+            kept_dirs: list[str] = [];
+            for dir_name in dirs {
+                if not should_skip_dir(dir_name) {
+                    kept_dirs.append(dir_name);
+                }
+            }
+            dirs.clear();
+            for dir_name in kept_dirs {
+                dirs.append(dir_name);
+            }
+            for file_name in files {
+                if not should_include_file(file_name) {
+                    continue;
+                }
+                full_path = path.join(current_root, file_name);
+                rel_path: str = str(path.relpath(full_path, effective_path)).replace("\\", "/");
+                matches.append(scored_match(rel_path, file_name));
+            }
+        }
+    } except OSError {
+        matches = [];
+    }
+
+    if cloned_tmp {
+        rmtree(cloned_tmp, ignore_errors=True);
+    }
+
     return matches;
 }
 

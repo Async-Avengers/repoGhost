@@ -1,5 +1,241 @@
 import from typing { Any }
 
+def html_escape(text: str) -> str {
+    t: str = text.replace("&", "&amp;");
+    t = t.replace("<", "&lt;");
+    t = t.replace(">", "&gt;");
+    return t;
+}
+
+def apply_bold(text: str) -> str {
+    parts: list[str] = text.split("**");
+    result: str = "";
+    i: int = 0;
+    for part in parts {
+        if i % 2 == 1 {
+            result = result + "<strong>" + part + "</strong>";
+        } else {
+            result = result + part;
+        }
+        i = i + 1;
+    }
+    return result;
+}
+
+def is_digit_char(c: str) -> bool {
+    return c >= "0" and c <= "9";
+}
+
+def is_ol_line(line: str) -> bool {
+    if len(line) < 3 { return False; }
+    if is_digit_char(line[0]) and line[1] == "." and line[2] == " " { return True; }
+    if len(line) >= 4 and is_digit_char(line[0]) and is_digit_char(line[1]) and line[2] == "." and line[3] == " " { return True; }
+    return False;
+}
+
+def ol_content(line: str) -> str {
+    if len(line) >= 3 and is_digit_char(line[0]) and line[1] == "." and line[2] == " " { return line[3:]; }
+    if len(line) >= 4 and is_digit_char(line[0]) and is_digit_char(line[1]) and line[2] == "." and line[3] == " " { return line[4:]; }
+    return line;
+}
+
+def lines_to_html(lines: list[str]) -> str {
+    result: str = "";
+    in_ul: bool = False;
+    in_ol: bool = False;
+    for raw_line in lines {
+        line: str = raw_line.strip();
+        if line.startswith("## ") {
+            if in_ul { result = result + "</ul>"; in_ul = False; }
+            if in_ol { result = result + "</ol>"; in_ol = False; }
+            result = result + "<h3>" + apply_bold(html_escape(line[3:])) + "</h3>";
+        } elif line.startswith("### ") {
+            if in_ul { result = result + "</ul>"; in_ul = False; }
+            if in_ol { result = result + "</ol>"; in_ol = False; }
+            result = result + "<h4>" + apply_bold(html_escape(line[4:])) + "</h4>";
+        } elif line.startswith("- ") or line.startswith("* ") {
+            if in_ol { result = result + "</ol>"; in_ol = False; }
+            if not in_ul { result = result + "<ul>"; in_ul = True; }
+            result = result + "<li>" + apply_bold(html_escape(line[2:])) + "</li>";
+        } elif is_ol_line(line) {
+            if in_ul { result = result + "</ul>"; in_ul = False; }
+            if not in_ol { result = result + "<ol>"; in_ol = True; }
+            result = result + "<li>" + apply_bold(html_escape(ol_content(line))) + "</li>";
+        } elif not line {
+            if in_ul { result = result + "</ul>"; in_ul = False; }
+            if in_ol { result = result + "</ol>"; in_ol = False; }
+        } else {
+            if in_ul { result = result + "</ul>"; in_ul = False; }
+            if in_ol { result = result + "</ol>"; in_ol = False; }
+            result = result + "<p>" + apply_bold(html_escape(line)) + "</p>";
+        }
+    }
+    if in_ul { result = result + "</ul>"; }
+    if in_ol { result = result + "</ol>"; }
+    return result;
+}
+
+def format_key_label(key: str) -> str {
+    parts: list[str] = key.replace("_", " ").replace("-", " ").split(" ");
+    result: str = "";
+    for part in parts {
+        if part {
+            if result { result = result + " "; }
+            result = result + part[0].upper() + part[1:];
+        }
+    }
+    return result;
+}
+
+def json_is_array(val: Any) -> bool {
+    if val is None { return False; }
+    try {
+        return bool(Array.isArray(val));  # jac:ignore[W2001]
+    } except Exception {
+        return False;
+    }
+}
+
+def json_is_object(val: Any) -> bool {
+    if val is None { return False; }
+    if json_is_array(val) { return False; }
+    try {
+        ks: Any = Object.keys(val);  # jac:ignore[W2001]
+        return bool(ks.length >= 0);  # jac:ignore[W2001]
+    } except Exception {
+        return False;
+    }
+}
+
+def render_json_val(val: Any, depth: int) -> str {
+    if val is None { return ""; }
+    if json_is_array(val) {
+        inner: str = "";
+        for item in val {
+            if item is None { continue; }
+            if json_is_object(item) {
+                item_html: str = render_json_obj(item, depth + 1);
+                if item_html { inner = inner + "<li class=\"rg-json-item\">" + item_html + "</li>"; }
+            } elif json_is_array(item) {
+                nested: str = render_json_val(item, depth + 1);
+                if nested { inner = inner + "<li>" + nested + "</li>"; }
+            } else {
+                s: str = str(item).strip();
+                if s { inner = inner + "<li>" + apply_bold(html_escape(s)) + "</li>"; }
+            }
+        }
+        if not inner { return ""; }
+        return "<ul>" + inner + "</ul>";
+    }
+    if json_is_object(val) {
+        return render_json_obj(val, depth + 1);
+    }
+    s_val: str = str(val).strip();
+    if not s_val or s_val == "null" or s_val == "undefined" { return ""; }
+    return "<p>" + apply_bold(html_escape(s_val)) + "</p>";
+}
+
+def json_val_is_empty(val: Any) -> bool {
+    if val is None { return True; }
+    if json_is_array(val) {
+        has_any: bool = False;
+        for item in val {
+            if item is not None and str(item) != "" {
+                has_any = True;
+                break;
+            }
+        }
+        return not has_any;
+    }
+    s: str = str(val).strip();
+    return s == "" or s == "null" or s == "None" or s == "undefined";
+}
+
+def render_json_obj(jobj: Any, depth: int) -> str {
+    result: str = "";
+    try {
+        keys: Any = Object.keys(jobj);  # jac:ignore[W2001]
+        for k in keys {
+            raw_key: str = str(k);
+            val: Any = jobj[raw_key];  # jac:ignore[W2001]
+            if json_val_is_empty(val) { continue; }
+            label: str = format_key_label(raw_key);
+            val_html: str = render_json_val(val, depth);
+            if not val_html { continue; }
+            result = result + "<div class=\"rg-json-section\"><div class=\"rg-json-key\">" + html_escape(label) + "</div><div class=\"rg-json-body\">" + val_html + "</div></div>";
+        }
+    } except Exception {
+        result = "";
+    }
+    return result;
+}
+
+def try_json_html(text: str) -> str {
+    t: str = text.strip();
+    if not t { return ""; }
+    if t[0] != "{" and t[0] != "[" { return ""; }
+    try {
+        parsed: Any = JSON.parse(t);  # jac:ignore[W2001]
+        if parsed is None { return ""; }
+        if json_is_object(parsed) {
+            rendered: str = render_json_obj(parsed, 0);
+            if rendered { return rendered; }
+            return "";
+        }
+        if json_is_array(parsed) {
+            return render_json_val(parsed, 0);
+        }
+        return "";
+    } except Exception {
+        return "";
+    }
+}
+
+def md_to_html(text: str) -> str {
+    code_segments: list[str] = text.split("```");
+    result: str = "";
+    seg_i: int = 0;
+    for segment in code_segments {
+        if seg_i % 2 == 1 {
+            code_lines: list[str] = segment.split("\n");
+            content: str = segment;
+            if len(code_lines) > 0 {
+                first_line: str = code_lines[0].strip();
+                has_lang: bool = len(first_line) > 0 and len(first_line.split(" ")) == 1;
+                if has_lang and len(code_lines) > 1 {
+                    body: str = "";
+                    j: int = 0;
+                    for cl in code_lines {
+                        if j > 0 {
+                            if j > 1 { body = body + "\n"; }
+                            body = body + cl;
+                        }
+                        j = j + 1;
+                    }
+                    content = body.strip();
+                } else {
+                    content = segment.strip();
+                }
+            }
+            result = result + "<pre><code>" + html_escape(content) + "</code></pre>";
+        } else {
+            inline_parts: list[str] = segment.split("`");
+            inl_i: int = 0;
+            for ipart in inline_parts {
+                if inl_i % 2 == 1 {
+                    result = result + "<code>" + html_escape(ipart) + "</code>";
+                } else {
+                    lines: list[str] = ipart.split("\n");
+                    result = result + lines_to_html(lines);
+                }
+                inl_i = inl_i + 1;
+            }
+        }
+        seg_i = seg_i + 1;
+    }
+    return result;
+}
+
 def tab_class(tab: str, current: str) -> str {
     if tab == current {
         return "flex-1 border-b-2 border-accent px-2.5 py-2.5 text-[14px] font-semibold text-foreground transition-colors";
@@ -76,7 +312,7 @@ def section_label(text: str) -> JsxElement {
 }
 
 def card_class() -> str {
-    return "min-w-0 overflow-hidden rounded-[1.2rem] border border-border bg-panel-soft/90 p-3.5";
+    return "min-w-0 overflow-hidden rounded-[1.2rem] border border-border bg-panel-soft/90 p-4";
 }
 
 def invoke_callback(fn: Any, value: Any) -> None {
@@ -154,7 +390,8 @@ def:pub WidgetShell(
     setActiveWidgetTab: Any = None,
     setFollowUpPrompt: Any = None,
     processContext: Any = None,
-    askAboutRun: Any = None
+    askAboutRun: Any = None,
+    processLabel: str = "Process Context"
 ) -> JsxElement {
     files: list[Any] = [];
     blockers: list[Any] = [];
@@ -162,7 +399,7 @@ def:pub WidgetShell(
     tickets: list[Any] = [];
     transcriptSummary: str = "";
     runSummary: str = statusMessage;
-    projectName: str = "RepoGhost";
+    projectName: str = "repoGhost";
     projectType: str = "";
     nextSteps: list[str] = [];
 
@@ -247,9 +484,6 @@ def:pub WidgetShell(
                 <span className="truncate text-[14px] text-foreground" title={itemPath}>{itemPath}</span>
             </div>
         );
-        if len(fileRows) >= 4 {
-            break;
-        }
     }
 
     ownershipRows: list[JsxElement] = [];
@@ -352,11 +586,28 @@ def:pub WidgetShell(
     queryRows: list[JsxElement] = [];
     for item in historyWindow {
         role: str = item["role"];
-        queryRows.append(
-            <div key={role + "::" + str(len(queryRows))} className="flex">
-                <div className={history_bubble_class(role)}>{item["content"]}</div>
-            </div>
-        );
+        content: str = item["content"];
+        item_key: str = role + "::" + str(len(queryRows));
+        if role == "assistant" {
+            rendered_html: str = try_json_html(content);
+            if not rendered_html {
+                rendered_html = md_to_html(content);
+            }
+            queryRows.append(
+                <div key={item_key} className="flex">
+                    <div
+                        className={history_bubble_class(role) + " rg-markdown"}
+                        dangerouslySetInnerHTML={{"__html": rendered_html}}
+                    />
+                </div>
+            );
+        } else {
+            queryRows.append(
+                <div key={item_key} className="flex">
+                    <div className={history_bubble_class(role)}>{content}</div>
+                </div>
+            );
+        }
     }
 
     errorBanner: JsxElement = <div />;
@@ -372,12 +623,16 @@ def:pub WidgetShell(
                 {section_label("Grounded Files")}
                 <span className="text-[12px] text-muted">{str(len(files)) + " files"}</span>
             </div>
-            <div className="space-y-2 min-w-0">{fileRows}</div>
+            <div className="space-y-2 min-w-0 max-h-[260px] overflow-y-auto repoghost-scroll pr-1">{fileRows}</div>
         </div>
-        <div className={card_class() + " space-y-3"}>
-            {section_label("Ownership Map")}
-            <div className="grid grid-cols-1 gap-3">{ownershipRows}</div>
-        </div>
+        {(
+            <div className={card_class() + " space-y-3"}>
+                {section_label("Ownership Map")}
+                <div className="grid grid-cols-1 gap-3">{ownershipRows}</div>
+            </div>
+            if len(ownershipRows) > 0
+            else <div />
+        )}
     </div>;
 
     emptyContextBody: JsxElement = <div className={card_class()}>
@@ -401,7 +656,7 @@ def:pub WidgetShell(
                     type="text"
                     value={repoPath}
                     onChange={lambda e: Any -> None { if setRepoPath { invoke_callback(setRepoPath, e.target.value); } }}
-                    placeholder="C:/path/to/repo"
+                    placeholder="C:/path/to/repo or https://github.com/user/repo"
                     className="w-full rounded-2xl border border-border bg-panel px-4 py-3 text-[15px] text-foreground outline-none placeholder:text-muted focus:border-accent transition-colors"
                 />
             </div>
@@ -433,23 +688,34 @@ def:pub WidgetShell(
             <button
                 onClick={process_current_context}
                 disabled={contextLoading}
-                className="inline-flex items-center justify-center rounded-2xl bg-accent px-5 py-3 text-[15px] font-semibold text-background transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+                className="w-full inline-flex items-center justify-center gap-2.5 rounded-2xl bg-accent px-5 py-3 text-[15px] font-semibold text-background transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
             >
-                {("Processing Context..." if contextLoading else "Process Context")}
+                {(<span className="rg-spinner" /> if contextLoading else <span />)}
+                {(processLabel if contextLoading else "Process Context")}
             </button>
         </div>
         {contextTail}
     </div>;
 
     processedTasksBody: JsxElement = <div className="space-y-3 min-w-0">
-        <div className={card_class() + " space-y-3"}>
-            {section_label("Execution Tasks")}
-            <div className="grid grid-cols-1 gap-3 min-w-0">{taskCards}</div>
-        </div>
-        <div className={card_class() + " space-y-3"}>
-            {section_label("Ticket Preview")}
-            <div className="grid grid-cols-1 gap-3 min-w-0">{ticketRows}</div>
-        </div>
+        {(
+            <div className={card_class() + " space-y-3"}>
+                {section_label("Execution Tasks")}
+                <div className="grid grid-cols-1 gap-3 min-w-0">{taskCards}</div>
+            </div>
+            if len(taskCards) > 0
+            else <div className={card_class()}>
+                <div className="text-[14px] text-muted">No tasks generated for this run.</div>
+            </div>
+        )}
+        {(
+            <div className={card_class() + " space-y-3"}>
+                {section_label("Ticket Preview")}
+                <div className="grid grid-cols-1 gap-3 min-w-0">{ticketRows}</div>
+            </div>
+            if len(ticketRows) > 0
+            else <div />
+        )}
     </div>;
 
     emptyTasksBody: JsxElement = <div className={card_class()}>
@@ -468,26 +734,41 @@ def:pub WidgetShell(
             <div className="mt-2 break-words text-[14px] leading-6 text-muted">{runSummary}</div>
             {(<div /> if not projectType else <div className="mt-3 inline-flex rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-[12px] font-medium text-accent">{projectType}</div>)}
         </div>
-        <div className={card_class()}>
-            {section_label("Transcript Summary")}
-            <div className="mt-3 break-words text-[14px] leading-6 text-foreground">
-                {transcriptSummary if transcriptSummary else "Transcript understanding will appear here after the run completes."}
+        {(
+            <div className={card_class()}>
+                {section_label("Transcript Summary")}
+                <div className="mt-3 break-words text-[14px] leading-6 text-foreground">{transcriptSummary}</div>
             </div>
-        </div>
-        <div className={card_class() + " space-y-3"}>
-            {section_label("Decisions")}
-            <div className="grid grid-cols-1 gap-3">{decisionRows}</div>
-        </div>
-        <div className={card_class() + " space-y-3"}>
-            {section_label("Current Blockers")}
-            <div className="grid grid-cols-1 gap-3">{blockerRows}</div>
-        </div>
-        <div className={card_class() + " space-y-3"}>
-            {section_label("Next Steps")}
-            <div className="grid grid-cols-1 gap-3">{nextStepRows}</div>
-        </div>
-        <div className={card_class() + " space-y-3"}>
+            if transcriptSummary
+            else <div />
+        )}
+        {(
+            <div className={card_class() + " space-y-3"}>
+                {section_label("Decisions")}
+                <div className="grid grid-cols-1 gap-3">{decisionRows}</div>
+            </div>
+            if len(decisionRows) > 0
+            else <div />
+        )}
+        {(
+            <div className={card_class() + " space-y-3"}>
+                {section_label("Current Blockers")}
+                <div className="grid grid-cols-1 gap-3">{blockerRows}</div>
+            </div>
+            if len(blockerRows) > 0
+            else <div />
+        )}
+        {(
+            <div className={card_class() + " space-y-3"}>
+                {section_label("Next Steps")}
+                <div className="grid grid-cols-1 gap-3">{nextStepRows}</div>
+            </div>
+            if len(nextStepRows) > 0
+            else <div />
+        )}
+        <div className={card_class() + " flex flex-col gap-3"}>
             {section_label("Ask About This Run")}
+            {(<div className="flex flex-col gap-3 max-h-[420px] overflow-y-auto repoghost-scroll pr-1">{queryRows}</div> if len(queryRows) > 0 else <div />)}
             <textarea
                 value={followUpPrompt}
                 onChange={lambda e: Any -> None { if setFollowUpPrompt { invoke_callback(setFollowUpPrompt, e.target.value); } }}
@@ -498,11 +779,10 @@ def:pub WidgetShell(
             <button
                 onClick={ask_current_run}
                 disabled={queryLoading}
-                className="inline-flex items-center justify-center rounded-2xl bg-accent px-5 py-3 text-[15px] font-semibold text-background transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+                className="w-full inline-flex items-center justify-center rounded-2xl bg-accent px-5 py-3 text-[15px] font-semibold text-background transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
             >
                 {("Thinking..." if queryLoading else "Ask")}
             </button>
-            <div className="space-y-3 min-w-0">{queryRows}</div>
         </div>
     </div>;
 
@@ -530,7 +810,7 @@ def:pub WidgetShell(
                 <div className="flex items-center gap-3">
                     <span className="text-[22px]">👻</span>
                     <div className="min-w-0">
-                        <div className="text-[18px] font-semibold tracking-tight text-foreground">RepoGhost</div>
+                        <div className="text-[18px] font-semibold tracking-tight text-foreground">repoGhost</div>
                         <div className="truncate text-[12px] text-muted">{subtitle}</div>
                     </div>
                 </div>

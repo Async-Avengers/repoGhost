@@ -85,6 +85,14 @@ obj DocsSyncResult {
     has decisions: list[DecisionItem] = [];
 }
 
+obj QueryArtifactAnswer {
+    has answer: str = "";
+    has key_points: list[str] = [];
+    has relevant_files: list[str] = [];
+    has blockers: list[str] = [];
+    has next_steps: list[str] = [];
+}
+
 def docs_sync_files(result: DocsSyncResult) -> list[FileMatch] {
     return result.files;
 }

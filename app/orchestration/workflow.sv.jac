@@ -2,6 +2,7 @@ import from datetime { datetime }
 import from os { path }
 import from concurrent.futures { Future }
 import from typing { Any, cast }
+import json;
 import from byllm.exceptions { ByLLMError }
 import from app.models.workflow {
     WorkflowRequest, WorkflowTraceStep, WorkflowRunState,
@@ -11,7 +12,7 @@ import from app.models.core {
     DecisionItem, BlockerItem, FileMatch, MeetingSummary, OwnershipGuess
 }
 import from app.models.outputs {
-    ActionPlan, DocsSyncResult, GeneratedTicket, HandoffNoteData, RepoSummary,
+    ActionPlan, DocsSyncResult, GeneratedTicket, HandoffNoteData, QueryArtifactAnswer, RepoSummary,
     ReviewScopeData, ProjectContextGraph, StandupUpdateData, TaskItem,
     WorkflowResultBundle
 }
@@ -38,7 +39,7 @@ include app.agents.standup_agent;
 include app.agents.handoff_agent;
 include app.agents.review_prep;
 
-def llm_query_run_artifacts(_prompt: str, _artifact_context: str) -> str by llm();
+def llm_query_run_artifacts(_prompt: str, _artifact_context: str) -> QueryArtifactAnswer by llm();
 
 def now_text() -> str {
     return str(datetime.now());
@@ -1434,26 +1435,45 @@ def:pub get_memory_snapshot(repo_path: str) -> dict {
     return get_project_memory(repo_path);
 }
 
-def:pub query_run_artifacts(prompt: str, bundle: Any, user_api_key: str = "", user_model: str = "") -> str {
+def:pub query_run_artifacts(prompt: str, bundle: str, user_api_key: str = "", user_model: str = "") -> str {
     if not prompt {
         return "Add a follow-up question after the run completes.";
     }
-    configure_request_llm(user_api_key, user_model);
-    artifact_context: str = slice_text(artifact_context_text(bundle), 12000);
-    if llm_available() {
-        try {
-            return llm_query_run_artifacts(slice_text(prompt, 1200), artifact_context);
-        } except ByLLMError {
-            return deterministic_artifact_answer(prompt, bundle);
-        } except RuntimeError {
-            return deterministic_artifact_answer(prompt, bundle);
-        } except ValueError {
-            return deterministic_artifact_answer(prompt, bundle);
-        } except TypeError {
-            return deterministic_artifact_answer(prompt, bundle);
-        } except OSError {
-            return deterministic_artifact_answer(prompt, bundle);
-        }
+    bundle_data: Any = {};
+    try {
+        bundle_data = json.loads(bundle) if bundle else {};
+    } except Exception {
+        bundle_data = {};
     }
-    return deterministic_artifact_answer(prompt, bundle);
+    try {
+        configure_request_llm(user_api_key, user_model);
+        artifact_context: str = slice_text(artifact_context_text(bundle_data), 12000);
+        if llm_available() {
+            try {
+                qa: QueryArtifactAnswer = llm_query_run_artifacts(slice_text(prompt, 1200), artifact_context);
+                return json.dumps({
+                    "answer": qa.answer,
+                    "key_points": qa.key_points,
+                    "relevant_files": qa.relevant_files,
+                    "blockers": qa.blockers,
+                    "next_steps": qa.next_steps
+                });
+            } except ByLLMError {
+                return deterministic_artifact_answer(prompt, bundle_data);
+            } except RuntimeError {
+                return deterministic_artifact_answer(prompt, bundle_data);
+            } except ValueError {
+                return deterministic_artifact_answer(prompt, bundle_data);
+            } except TypeError {
+                return deterministic_artifact_answer(prompt, bundle_data);
+            } except OSError {
+                return deterministic_artifact_answer(prompt, bundle_data);
+            } except Exception {
+                return deterministic_artifact_answer(prompt, bundle_data);
+            }
+        }
+        return deterministic_artifact_answer(prompt, bundle_data);
+    } except Exception {
+        return deterministic_artifact_answer(prompt, bundle_data);
+    }
 }

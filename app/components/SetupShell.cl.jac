@@ -32,7 +32,7 @@ def:pub SetupShell(
     submitSetup: Any = None
 ) -> JsxElement {
     modelRows: list[JsxElement] = setup_option_rows(modelOptions);
-    buttonLabel: str = "Saving..." if loading else "Enter RepoGhost";
+    buttonLabel: str = "Saving..." if loading else "Enter repoGhost";
     errorBanner: JsxElement = <div />;
     if error {
         errorBanner = <div className="rounded-2xl border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-foreground">
@@ -52,7 +52,7 @@ def:pub SetupShell(
                 👻
             </div>
             <div>
-                <div className="text-[28px] font-semibold tracking-tight text-foreground">RepoGhost</div>
+                <div className="text-[28px] font-semibold tracking-tight text-foreground">repoGhost</div>
                 <div className="mt-2 text-[15px] leading-6 text-muted">
                     Set your OpenAI key and preferred GPT model before entering the widget. Leave the key empty to continue in deterministic mode.
                 </div>

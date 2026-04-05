@@ -162,3 +162,96 @@ input[type="file"]::file-selector-button {
   --color-accent-2: #046c63;
   --color-muted: #28415f;
 }
+
+@keyframes rg-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.rg-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: rg-spin 0.75s linear infinite;
+  flex-shrink: 0;
+}
+
+/* Markdown rendered output */
+.rg-markdown { min-width: 0; }
+.rg-markdown p { margin: 4px 0; font-size: 14px; line-height: 1.6; }
+.rg-markdown p:first-child { margin-top: 0; }
+.rg-markdown p:last-child { margin-bottom: 0; }
+.rg-markdown h3 { font-size: 15px; font-weight: 600; color: var(--color-foreground); margin: 10px 0 4px; }
+.rg-markdown h4 { font-size: 14px; font-weight: 600; color: var(--color-foreground); margin: 8px 0 4px; }
+.rg-markdown h3:first-child, .rg-markdown h4:first-child { margin-top: 0; }
+.rg-markdown strong { font-weight: 600; }
+.rg-markdown ul, .rg-markdown ol { margin: 6px 0; padding-left: 18px; }
+.rg-markdown li { font-size: 14px; line-height: 1.6; margin: 2px 0; }
+.rg-markdown code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12.5px;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+.rg-markdown pre {
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  overflow-x: auto;
+  margin: 8px 0;
+}
+.rg-markdown pre code {
+  background: none;
+  padding: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  white-space: pre;
+}
+/* JSON section rendering in chat */
+.rg-markdown .rg-json-section {
+  margin: 10px 0 0;
+}
+.rg-markdown .rg-json-section:first-child {
+  margin-top: 0;
+}
+.rg-markdown .rg-json-key {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--color-muted);
+  margin-bottom: 3px;
+}
+.rg-markdown .rg-json-body p {
+  margin: 2px 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--color-foreground);
+}
+.rg-markdown .rg-json-body ul {
+  margin: 2px 0;
+  padding-left: 16px;
+}
+.rg-markdown .rg-json-body li {
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 1px 0;
+  color: var(--color-foreground);
+}
+.rg-markdown .rg-json-item {
+  list-style: none;
+  padding: 6px 0 2px;
+  border-top: 1px solid var(--color-border);
+  margin-top: 4px;
+}
+.rg-markdown .rg-json-item:first-child {
+  border-top: none;
+  margin-top: 0;
+  padding-top: 2px;
+}

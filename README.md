@@ -41,6 +41,31 @@ jac start --dev main.jac
 
 `http://127.0.0.1:8001` is the API server, not the main app page.
 
+## Docker
+
+### Prerequisites
+
+- Docker and Docker Compose installed
+
+### Run with Docker Compose
+
+```bash
+docker compose up -d
+```
+
+This builds the image and starts the container. The UI is available at `http://localhost:8000` and the API at `http://localhost:8001`.
+
+### Build the image manually
+
+```bash
+docker build -t repoghost .
+docker run -d --name repoghost -p 8000:8000 -p 8001:8001 repoghost
+```
+
+### CI
+
+A GitHub Actions workflow (`.github/workflows/docker-build.yml`) builds and validates the Docker image on every push and PR to `main`. It uses Docker Buildx with GitHub Actions caching for fast rebuilds.
+
 ## Build notes
 
 - Use `jac install` after dependency or `jac.toml` changes.

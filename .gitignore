@@ -26,6 +26,11 @@ data/indexes/
 data/sessions/
 data/memory/
 
+# Tauri / Rust
+target/
+src-tauri/target/
+src-tauri/gen/
+
 # OS / editor
 .DS_Store
 Thumbs.db

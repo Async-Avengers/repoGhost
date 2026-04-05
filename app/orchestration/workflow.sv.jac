@@ -1,7 +1,7 @@
 import from datetime { datetime }
 import from os { path }
 import from concurrent.futures { Future }
-import from typing { cast }
+import from typing { Any, cast }
 import from byllm.exceptions { ByLLMError }
 import from app.models.workflow {
     WorkflowRequest, WorkflowTraceStep, WorkflowRunState,
@@ -896,69 +896,131 @@ def build_bundle_summary(kind: str, repo_summary: RepoSummary, files: list[FileM
     return repo_summary.project_name + " is organized around " + str(workstreams) + " next-step workstreams. " + blocker_text;
 }
 
-def artifact_context_text(bundle: WorkflowResultBundle) -> str {
+def object_value(source: Any, key: str) -> Any | None {
+    if source is None {
+        return None;
+    }
+    if type(source) == dict {
+        if key in source {
+            return source[key];
+        }
+        return None;
+    }
+    try {
+        return getattr(source, key);
+    } except AttributeError {
+        return None;
+    } except TypeError {
+        return None;
+    }
+}
+
+def object_text(source: Any, key: str) -> str {
+    value: Any | None = object_value(source, key);
+    if value is None {
+        return "";
+    }
+    return str(value);
+}
+
+def object_items(source: Any, key: str) -> list[Any] {
+    value: Any | None = object_value(source, key);
+    if type(value) == list {
+        return cast(list[Any], value);
+    }
+    return [];
+}
+
+def join_any_items(items: list[Any], separator: str = ", ") -> str {
+    text: str = "";
+    for item in items {
+        if text {
+            text = text + separator;
+        }
+        text = text + str(item);
+    }
+    return text;
+}
+
+def artifact_context_text(bundle: Any) -> str {
     lines: list[str] = [];
-    if bundle.run_state.summary {
-        lines.append("Run summary: " + bundle.run_state.summary);
+    run_state: Any | None = object_value(bundle, "run_state");
+    repo_summary: Any | None = object_value(bundle, "repo_summary");
+    meeting_summary: Any | None = object_value(bundle, "meeting_summary");
+    handoff: Any | None = object_value(bundle, "handoff");
+    standup: Any | None = object_value(bundle, "standup");
+    review: Any | None = object_value(bundle, "review");
+
+    if object_text(run_state, "summary") {
+        lines.append("Run summary: " + object_text(run_state, "summary"));
     }
-    if bundle.repo_summary.project_name or bundle.repo_summary.overview {
-        lines.append("Project: " + bundle.repo_summary.project_name + " | " + bundle.repo_summary.overview);
+    if object_text(repo_summary, "project_name") or object_text(repo_summary, "overview") {
+        lines.append("Project: " + object_text(repo_summary, "project_name") + " | " + object_text(repo_summary, "overview"));
     }
-    if bundle.meeting_summary.summary {
-        lines.append("Transcript summary: " + bundle.meeting_summary.summary);
+    if object_text(meeting_summary, "summary") {
+        lines.append("Transcript summary: " + object_text(meeting_summary, "summary"));
     }
-    for item in bundle.decisions[0:6] {
-        lines.append("Decision: " + item.title + " | " + item.detail);
+    for item in object_items(bundle, "decisions")[0:6] {
+        lines.append("Decision: " + object_text(item, "title") + " | " + object_text(item, "detail"));
     }
-    for item in bundle.blockers[0:6] {
-        lines.append("Blocker: " + item.title + " | " + item.detail);
+    for item in object_items(bundle, "blockers")[0:6] {
+        lines.append("Blocker: " + object_text(item, "title") + " | " + object_text(item, "detail"));
     }
-    for item in bundle.tasks[0:6] {
-        lines.append("Task: " + item.title + " | " + item.summary + " | files=" + ", ".join(item.likely_files));
+    for item in object_items(bundle, "tasks")[0:6] {
+        lines.append(
+            "Task: " + object_text(item, "title")
+            + " | " + object_text(item, "summary")
+            + " | files=" + join_any_items(object_items(item, "likely_files"))
+        );
     }
-    for item in bundle.tickets[0:5] {
-        lines.append("Ticket: " + item.title + " | " + item.summary);
+    for item in object_items(bundle, "tickets")[0:5] {
+        lines.append("Ticket: " + object_text(item, "title") + " | " + object_text(item, "summary"));
     }
-    if bundle.handoff.summary {
-        lines.append("Handoff: " + bundle.handoff.summary);
+    if object_text(handoff, "summary") {
+        lines.append("Handoff: " + object_text(handoff, "summary"));
     }
-    for item in bundle.handoff.next_actions[0:4] {
-        lines.append("Handoff next: " + item);
+    for item in object_items(handoff, "next_actions")[0:4] {
+        lines.append("Handoff next: " + str(item));
     }
-    for item in bundle.standup.done[0:3] {
-        lines.append("Standup done: " + item);
+    for item in object_items(standup, "done")[0:3] {
+        lines.append("Standup done: " + str(item));
     }
-    for item in bundle.standup.next[0:4] {
-        lines.append("Standup next: " + item);
+    for item in object_items(standup, "next")[0:4] {
+        lines.append("Standup next: " + str(item));
     }
-    for item in bundle.review.risk_hotspots[0:5] {
-        lines.append("Review hotspot: " + item);
+    for item in object_items(review, "risk_hotspots")[0:5] {
+        lines.append("Review hotspot: " + str(item));
     }
-    for item in bundle.relevant_files[0:10] {
-        lines.append("Relevant file: " + item.path + " | " + item.rationale);
+    for item in object_items(bundle, "relevant_files")[0:10] {
+        lines.append("Relevant file: " + object_text(item, "path") + " | " + object_text(item, "rationale"));
     }
-    for item in bundle.trace[0:10] {
-        lines.append("Trace: " + item.agent + " | " + item.detail);
+    for item in object_items(bundle, "trace")[0:10] {
+        lines.append("Trace: " + object_text(item, "agent") + " | " + object_text(item, "detail"));
     }
     return join_lines(lines);
 }
 
-def deterministic_artifact_answer(prompt: str, bundle: WorkflowResultBundle) -> str {
+def deterministic_artifact_answer(prompt: str, bundle: Any) -> str {
     answer_lines: list[str] = [];
-    if bundle.run_state.summary {
-        answer_lines.append(bundle.run_state.summary);
+    run_state: Any | None = object_value(bundle, "run_state");
+    meeting_summary: Any | None = object_value(bundle, "meeting_summary");
+    if object_text(run_state, "summary") {
+        answer_lines.append(object_text(run_state, "summary"));
     }
-    if bundle.meeting_summary.summary {
-        answer_lines.append("Transcript: " + bundle.meeting_summary.summary);
+    if object_text(meeting_summary, "summary") {
+        answer_lines.append("Transcript: " + object_text(meeting_summary, "summary"));
     }
-    if len(bundle.tasks) > 0 {
-        answer_lines.append("Top task: " + bundle.tasks[0].title + " — " + bundle.tasks[0].summary);
+    bundle_tasks: list[Any] = object_items(bundle, "tasks");
+    if len(bundle_tasks) > 0 {
+        answer_lines.append("Top task: " + object_text(bundle_tasks[0], "title") + " — " + object_text(bundle_tasks[0], "summary"));
     }
-    if len(bundle.tickets) > 0 {
-        answer_lines.append("Top ticket: " + bundle.tickets[0].title + " — " + bundle.tickets[0].summary);
+    bundle_tickets: list[Any] = object_items(bundle, "tickets");
+    if len(bundle_tickets) > 0 {
+        answer_lines.append("Top ticket: " + object_text(bundle_tickets[0], "title") + " — " + object_text(bundle_tickets[0], "summary"));
     }
-    if len(bundle.blockers) > 0 {
-        answer_lines.append("Key blocker: " + bundle.blockers[0].title + " — " + bundle.blockers[0].detail);
+    bundle_blockers: list[Any] = object_items(bundle, "blockers");
+    if len(bundle_blockers) > 0 {
+        answer_lines.append("Key blocker: " + object_text(bundle_blockers[0], "title") + " — " + object_text(bundle_blockers[0], "detail"));
     }
     if len(answer_lines) == 0 {
         answer_lines.append("No completed run artifacts are available yet.");
@@ -1372,7 +1434,7 @@ def:pub get_memory_snapshot(repo_path: str) -> dict {
     return get_project_memory(repo_path);
 }
 
-def:pub query_run_artifacts(prompt: str, bundle: WorkflowResultBundle, user_api_key: str = "", user_model: str = "") -> str {
+def:pub query_run_artifacts(prompt: str, bundle: Any, user_api_key: str = "", user_model: str = "") -> str {
     if not prompt {
         return "Add a follow-up question after the run completes.";
     }

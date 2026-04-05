@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 # Install Node.js (for Bun) and system deps
 RUN apt-get update && \

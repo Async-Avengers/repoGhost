@@ -91,33 +91,9 @@ jobs:
           sleep 30
           kill %1
 
-      - name: Debug — list .jac after jac js
-        shell: bash
-        continue-on-error: true
-        run: find .jac -type f | head -80
-
-      - name: Vite bundle frontend
-        shell: bash
-        run: |
-          cp .jac/client/configs/package.json .jac/client/package.json
-          cd .jac/client && bun install
-          cd .jac/client && node_modules/.bin/vite build --config configs/vite.config.js
-
-      # Clear beforeBuildCommand so Tauri does not try to re-run the bun script. .jac/client/dist, so clear beforeBuildCommand
-      # in tauri.conf.json to prevent Tauri from trying to re-run the bun script
-      # (there is no root-level package.json in this repo).
       - name: Patch tauri.conf.json — clear beforeBuildCommand
         shell: bash
-        run: |
-          python -c "
-          import json
-          path = 'src-tauri/tauri.conf.json'
-          with open(path) as f:
-              cfg = json.load(f)
-          cfg.setdefault('build', {})['beforeBuildCommand'] = ''
-          with open(path, 'w') as f:
-              json.dump(cfg, f, indent=2)
-          "
+        run: echo "tauri.conf.json patch skipped — jac start handles client build"
 
       - name: Tauri build — Windows NSIS installer
         run: NO_STRIP=1 cargo tauri build --bundles nsis
@@ -193,27 +169,8 @@ jobs:
           sleep 30
           kill %1
 
-      - name: Debug — list .jac after jac js
-        continue-on-error: true
-        run: find .jac -type f | head -80
-
-      - name: Vite bundle frontend
-        run: |
-          cp .jac/client/configs/package.json .jac/client/package.json
-          cd .jac/client && bun install
-          cd .jac/client && node_modules/.bin/vite build --config configs/vite.config.js
-
       - name: Patch tauri.conf.json — clear beforeBuildCommand
-        run: |
-          python3 -c "
-          import json
-          path = 'src-tauri/tauri.conf.json'
-          with open(path) as f:
-              cfg = json.load(f)
-          cfg.setdefault('build', {})['beforeBuildCommand'] = ''
-          with open(path, 'w') as f:
-              json.dump(cfg, f, indent=2)
-          "
+        run: echo "tauri.conf.json patch skipped — jac start handles client build"
 
       - name: Tauri build — macOS DMG
         # APPLE_SIGNING_IDENTITY is intentionally unset here so Tauri produces
@@ -306,27 +263,8 @@ jobs:
           sleep 30
           kill %1
 
-      - name: Debug — list .jac after jac js
-        continue-on-error: true
-        run: find .jac -type f | head -80
-
-      - name: Vite bundle frontend
-        run: |
-          cp .jac/client/configs/package.json .jac/client/package.json
-          cd .jac/client && bun install
-          cd .jac/client && node_modules/.bin/vite build --config configs/vite.config.js
-
       - name: Patch tauri.conf.json — clear beforeBuildCommand
-        run: |
-          python3 -c "
-          import json
-          path = 'src-tauri/tauri.conf.json'
-          with open(path) as f:
-              cfg = json.load(f)
-          cfg.setdefault('build', {})['beforeBuildCommand'] = ''
-          with open(path, 'w') as f:
-              json.dump(cfg, f, indent=2)
-          "
+        run: echo "tauri.conf.json patch skipped — jac start handles client build"
 
       - name: Tauri build — Linux AppImage
         run: NO_STRIP=1 cargo tauri build --bundles appimage

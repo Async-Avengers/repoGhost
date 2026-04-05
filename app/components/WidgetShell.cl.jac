@@ -50,16 +50,16 @@ def lines_to_html(lines: list[str]) -> str {
     in_ul: bool = False;
     in_ol: bool = False;
     for raw_line in lines {
-        line: str = raw_line.strip();
-        if line.startswith("## ") {
+        line: str = raw_line.trim();
+        if line.startsWith("## ") {
             if in_ul { result = result + "</ul>"; in_ul = False; }
             if in_ol { result = result + "</ol>"; in_ol = False; }
             result = result + "<h3>" + apply_bold(html_escape(line[3:])) + "</h3>";
-        } elif line.startswith("### ") {
+        } elif line.startsWith("### ") {
             if in_ul { result = result + "</ul>"; in_ul = False; }
             if in_ol { result = result + "</ol>"; in_ol = False; }
             result = result + "<h4>" + apply_bold(html_escape(line[4:])) + "</h4>";
-        } elif line.startswith("- ") or line.startswith("* ") {
+        } elif line.startsWith("- ") or line.startsWith("* ") {
             if in_ol { result = result + "</ol>"; in_ol = False; }
             if not in_ul { result = result + "<ul>"; in_ul = True; }
             result = result + "<li>" + apply_bold(html_escape(line[2:])) + "</li>";
@@ -87,7 +87,7 @@ def format_key_label(key: str) -> str {
     for part in parts {
         if part {
             if result { result = result + " "; }
-            result = result + part[0].upper() + part[1:];
+            result = result + part[0].toUpperCase() + part[1:];
         }
     }
     return result;
@@ -106,8 +106,8 @@ def json_is_object(val: Any) -> bool {
     if val is None { return False; }
     if json_is_array(val) { return False; }
     try {
-        ks: Any = Object.keys(val);  # jac:ignore[W2001]
-        return bool(ks.length >= 0);  # jac:ignore[W2001]
+        tag: str = str(Object.prototype.toString.call(val));  # jac:ignore[W2001]
+        return tag == "[object Object]";
     } except Exception {
         return False;
     }
@@ -115,6 +115,9 @@ def json_is_object(val: Any) -> bool {
 
 def render_json_val(val: Any, depth: int) -> str {
     if val is None { return ""; }
+    if depth >= 8 {
+        return "<p>[Nested content truncated]</p>";
+    }
     if json_is_array(val) {
         inner: str = "";
         for item in val {
@@ -126,7 +129,7 @@ def render_json_val(val: Any, depth: int) -> str {
                 nested: str = render_json_val(item, depth + 1);
                 if nested { inner = inner + "<li>" + nested + "</li>"; }
             } else {
-                s: str = str(item).strip();
+                s: str = str(item).trim();
                 if s { inner = inner + "<li>" + apply_bold(html_escape(s)) + "</li>"; }
             }
         }
@@ -136,7 +139,7 @@ def render_json_val(val: Any, depth: int) -> str {
     if json_is_object(val) {
         return render_json_obj(val, depth + 1);
     }
-    s_val: str = str(val).strip();
+    s_val: str = str(val).trim();
     if not s_val or s_val == "null" or s_val == "undefined" { return ""; }
     return "<p>" + apply_bold(html_escape(s_val)) + "</p>";
 }
@@ -153,12 +156,15 @@ def json_val_is_empty(val: Any) -> bool {
         }
         return not has_any;
     }
-    s: str = str(val).strip();
+    s: str = str(val).trim();
     return s == "" or s == "null" or s == "None" or s == "undefined";
 }
 
 def render_json_obj(jobj: Any, depth: int) -> str {
     result: str = "";
+    if depth >= 8 {
+        return "<p>[Nested content truncated]</p>";
+    }
     try {
         keys: Any = Object.keys(jobj);  # jac:ignore[W2001]
         for k in keys {
@@ -177,7 +183,7 @@ def render_json_obj(jobj: Any, depth: int) -> str {
 }
 
 def try_json_html(text: str) -> str {
-    t: str = text.strip();
+    t: str = text.trim();
     if not t { return ""; }
     if t[0] != "{" and t[0] != "[" { return ""; }
     try {
@@ -206,7 +212,7 @@ def md_to_html(text: str) -> str {
             code_lines: list[str] = segment.split("\n");
             content: str = segment;
             if len(code_lines) > 0 {
-                first_line: str = code_lines[0].strip();
+                first_line: str = code_lines[0].trim();
                 has_lang: bool = len(first_line) > 0 and len(first_line.split(" ")) == 1;
                 if has_lang and len(code_lines) > 1 {
                     body: str = "";
@@ -218,9 +224,9 @@ def md_to_html(text: str) -> str {
                         }
                         j = j + 1;
                     }
-                    content = body.strip();
+                    content = body.trim();
                 } else {
-                    content = segment.strip();
+                    content = segment.trim();
                 }
             }
             result = result + "<pre><code>" + html_escape(content) + "</code></pre>";
@@ -268,7 +274,7 @@ def file_ext_label(path: str) -> str {
     if not path {
         return "file";
     }
-    lower: str = path.lower();
+    lower: str = path.toLowerCase();
     if ends_with(lower, ".py") or ends_with(lower, ".pyi") { return "py"; }
     if ends_with(lower, ".tsx") { return "tsx"; }
     if ends_with(lower, ".jsx") { return "jsx"; }
@@ -300,7 +306,7 @@ def file_ext_label(path: str) -> str {
 }
 
 def file_ext_badge_class(path: str) -> str {
-    lower: str = path.lower();
+    lower: str = path.toLowerCase();
     base: str = "inline-flex shrink-0 items-center rounded-md px-2 py-1 text-[11px] font-semibold ";
     if ends_with(lower, ".py") or ends_with(lower, ".pyi") { return base + "bg-blue-500/20 text-blue-300"; }
     if ends_with(lower, ".tsx") or ends_with(lower, ".jsx") { return base + "bg-cyan-500/20 text-cyan-300"; }

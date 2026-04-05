@@ -1,11 +1,18 @@
 #!/bin/bash
-# Jac Sidecar Wrapper - Runs Jac backend using system Python
-# This requires Python and jaclang to be installed
+# RepoGhost sidecar — starts the Jac server (API + frontend on port 8001).
+# First argument: project directory (where main.jac lives).
 
-JAC_PYTHON="$HOME/.local/share/uv/tools/jaclang/bin/python"
-if [ ! -x "$JAC_PYTHON" ]; then
-    echo "Error: jaclang uv tool not found at $JAC_PYTHON" >&2
-    echo "  Install it with: uv tool install jaclang" >&2
+JAC="$HOME/.local/share/uv/tools/jaclang/bin/jac"
+
+if [ ! -x "$JAC" ]; then
+    echo "[sidecar] Error: jac not found at $JAC" >&2
+    echo "[sidecar]   Install with: uv tool install jaclang" >&2
     exit 1
 fi
-exec "$JAC_PYTHON" -m jac_client.plugin.src.targets.desktop.sidecar.main --port 8001 "$@"
+
+if [ -n "$1" ] && [ -d "$1" ]; then
+    cd "$1" || exit 1
+fi
+
+echo "[sidecar] Starting jac server in $(pwd)" >&2
+exec "$JAC" start main.jac

@@ -78,24 +78,17 @@ jobs:
             pip install "jaclang==${{ steps.jac.outputs.pin }}"
           fi
 
-      - name: Install Tauri CLI (latest stable)
-        run: npm install -g @tauri-apps/cli@latest
-
       - name: jac install — restore dependencies
         run: jac install
 
-      - name: jac js — generate client
+      # jac build --client desktop scaffolds .jac/client/, transpiles Jac to JS,
+      # installs npm deps, and runs the Vite bundle in one step. Output lands at
+      # .jac/client/dist/ which is where Tauri's frontendDist points.
+      - name: jac build — generate and bundle client
         shell: bash
-        run: jac js main.jac
+        run: jac build --client desktop
 
-      - name: Vite bundle frontend
-        shell: bash
-        run: |
-          cp .jac/client/configs/package.json .jac/client/package.json
-          cd .jac/client && bun install
-          cd .jac/client && node_modules/.bin/vite build --config configs/vite.config.js
-
-      # jac build already produced .jac/client/dist, so clear beforeBuildCommand
+      # Clear beforeBuildCommand so Tauri does not try to re-run the bun script. .jac/client/dist, so clear beforeBuildCommand
       # in tauri.conf.json to prevent Tauri from trying to re-run the bun script
       # (there is no root-level package.json in this repo).
       - name: Patch tauri.conf.json — clear beforeBuildCommand
@@ -112,13 +105,13 @@ jobs:
           "
 
       - name: Tauri build — Windows NSIS installer
-        run: tauri build --bundles nsis
+        run: NO_STRIP=1 cargo tauri build --bundles nsis
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
           name: repoghost-windows
-          path: src-tauri/target/release/bundle/nsis/*.exe
+          path: target/release/bundle/nsis/*.exe
           if-no-files-found: error
 
   # ---------------------------------------------------------------------------
@@ -174,20 +167,11 @@ jobs:
             pip3 install "jaclang==${{ steps.jac.outputs.pin }}" --break-system-packages
           fi
 
-      - name: Install Tauri CLI (latest stable)
-        run: npm install -g @tauri-apps/cli@latest
-
       - name: jac install — restore dependencies
         run: jac install
 
-      - name: jac js — generate client
-        run: jac js main.jac
-
-      - name: Vite bundle frontend
-        run: |
-          cp .jac/client/configs/package.json .jac/client/package.json
-          cd .jac/client && bun install
-          cd .jac/client && node_modules/.bin/vite build --config configs/vite.config.js
+      - name: jac build — generate and bundle client
+        run: jac build --client desktop
 
       - name: Patch tauri.conf.json — clear beforeBuildCommand
         run: |
@@ -207,13 +191,13 @@ jobs:
         # For notarised release builds, add APPLE_ID / APPLE_PASSWORD /
         # APPLE_TEAM_ID / APPLE_CERTIFICATE as repository secrets and export
         # them here.
-        run: tauri build --bundles dmg
+        run: NO_STRIP=1 cargo tauri build --bundles dmg
 
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
         with:
           name: repoghost-macos
-          path: src-tauri/target/release/bundle/dmg/*.dmg
+          path: target/release/bundle/dmg/*.dmg
           if-no-files-found: error
 
   # ---------------------------------------------------------------------------
@@ -281,20 +265,11 @@ jobs:
             pip3 install "jaclang==${{ steps.jac.outputs.pin }}"
           fi
 
-      - name: Install Tauri CLI (latest stable)
-        run: npm install -g @tauri-apps/cli@latest
-
       - name: jac install — restore dependencies
         run: jac install
 
-      - name: jac js — generate client
-        run: jac js main.jac
-
-      - name: Vite bundle frontend
-        run: |
-          cp .jac/client/configs/package.json .jac/client/package.json
-          cd .jac/client && bun install
-          cd .jac/client && node_modules/.bin/vite build --config configs/vite.config.js
+      - name: jac build — generate and bundle client
+        run: jac build --client desktop
 
       - name: Patch tauri.conf.json — clear beforeBuildCommand
         run: |
@@ -309,13 +284,13 @@ jobs:
           "
 
       - name: Tauri build — Linux AppImage
-        run: tauri build --bundles appimage
+        run: NO_STRIP=1 cargo tauri build --bundles appimage
 
       - name: Upload Linux artifact
         uses: actions/upload-artifact@v4
         with:
           name: repoghost-linux
-          path: src-tauri/target/release/bundle/appimage/*.AppImage
+          path: target/release/bundle/appimage/*.AppImage
           if-no-files-found: error
 
   # ─── Release job ───────────────────────────────────────────────────────────

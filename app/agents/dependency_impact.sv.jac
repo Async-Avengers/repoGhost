@@ -9,10 +9,23 @@ obj ImpactInsight {
 }
 
 def impact_risk(path: str) -> str {
-    if path.startswith("app/orchestration") or path.startswith("app/graph") {
-        return "high";
+    lower: str = path.lower();
+    high_patterns: list[str] = ["/orchestration/", "/workflow", "/graph/", "/services/", "/api/", "/routes/", "/agents/"];
+    for pattern in high_patterns {
+        if pattern in ("/" + lower) {
+            return "high";
+        }
     }
-    if path.startswith("app/components") {
+    mid_patterns: list[str] = ["/components/", "/views/", "/pages/", "/controllers/", "/models/", "/schema/"];
+    for pattern in mid_patterns {
+        if pattern in ("/" + lower) {
+            return "medium";
+        }
+    }
+    entry_names: list[str] = ["main.py", "main.ts", "main.js", "app.py", "manage.py", "wsgi.py", "asgi.py", "server.py", "index.ts", "index.js"];
+    parts: list[str] = lower.split("/");
+    filename: str = parts[len(parts) - 1];
+    if filename in entry_names {
         return "medium";
     }
     return "low";

@@ -16,14 +16,26 @@ def term_score(lowered_path: str, terms: list[str]) -> float {
 }
 
 def path_score(lowered_path: str) -> float {
-    if lowered_path.endswith(".sv.jac") {
+    parts: list[str] = lowered_path.split("/");
+    filename: str = parts[len(parts) - 1];
+    base: str = filename.split(".")[0] if "." in filename else filename;
+    entry_names: list[str] = ["main", "index", "app", "server", "mod", "lib", "wsgi", "asgi", "manage", "program"];
+    if base in entry_names {
         return 0.12;
     }
-    if lowered_path.endswith(".cl.jac") {
-        return 0.08;
+    if filename.startswith("readme") {
+        return 0.10;
     }
-    if lowered_path.endswith("readme.md") {
-        return 0.05;
+    key_dirs: list[str] = [
+        "orchestration", "workflow", "graph",
+        "services", "service", "api", "routes", "controllers",
+        "components", "views", "pages",
+        "models", "schema", "agents"
+    ];
+    for d in key_dirs {
+        if ("/" + d + "/") in ("/" + lowered_path) {
+            return 0.08;
+        }
     }
     return 0.0;
 }

@@ -10,7 +10,7 @@ def tab_class(tab: str, current: str) -> str {
 def file_basename(path: str) -> str {
     normalized: str = path.replace("\\", "/");
     parts: list[str] = normalized.split("/");
-    return parts[-1];
+    return parts[len(parts) - 1];
 }
 
 def file_ext_label(p: str) -> str {
@@ -49,7 +49,7 @@ def file_ext_label(p: str) -> str {
     if lower.endswith(".sh") or lower.endswith(".bash") { return "sh"; }
     dot_parts: list[str] = p.split(".");
     if len(dot_parts) > 1 {
-        ext: str = dot_parts[-1];
+        ext: str = dot_parts[len(dot_parts) - 1];
         if len(ext) <= 5 {
             return ext;
         }

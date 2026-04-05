@@ -42,11 +42,20 @@ def score_match(terms: list[str], path: str, rationale: str) -> float {
             match_bonus += 0.18;
         }
     }
-    if path.startswith("app/components") {
-        match_bonus += 0.08;
+    high_signal_dirs: list[str] = ["orchestration", "workflow", "graph", "services", "api", "routes", "controllers", "agents"];
+    mid_signal_dirs: list[str] = ["components", "views", "pages", "models", "schema"];
+    lower_path: str = path.lower();
+    for d in high_signal_dirs {
+        if ("/" + d + "/") in ("/" + lower_path) or lower_path.startswith(d + "/") {
+            match_bonus += 0.12;
+            break;
+        }
     }
-    if path.startswith("app/services") or path.startswith("app/orchestration") {
-        match_bonus += 0.12;
+    for d in mid_signal_dirs {
+        if ("/" + d + "/") in ("/" + lower_path) or lower_path.startswith(d + "/") {
+            match_bonus += 0.08;
+            break;
+        }
     }
     return match_bonus;
 }

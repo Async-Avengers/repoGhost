@@ -84,29 +84,11 @@ jobs:
       - name: jac install — restore dependencies
         run: jac install
 
-      - name: jac js — compile frontend
-        run: jac js main.jac
-
-      - name: Debug — show jac js output
-        shell: bash
-        continue-on-error: true
-        run: echo "=== repo root ===" && ls -la && echo "=== .jac dir ===" && ls -la .jac || echo ".jac missing" && echo "=== .jac/client ===" && ls -la .jac/client || echo ".jac/client missing"
-
-      # jac js transpiles Jac → .jac/client/compiled/ and generates
-      # .jac/client/configs/vite.config.js + configs/package.json. The .jac/
-      # tree is gitignored so node_modules won't exist in CI. Copy the generated
-      # package.json up one level so bun can find it (bun install looks in the
-      # cwd, not in subdirs), install deps there, then run the Vite bundle which
-      # writes the final index.html + JS + CSS to .jac/client/dist/ — the path
-      # Tauri's frontendDist expects.
       - name: Vite bundle frontend
-        continue-on-error: true
-        shell: bash
         run: |
-          echo "=== repo root ==="
-          ls -la
-          echo "=== .jac contents if exists ==="
-          ls -la .jac || echo ".jac does not exist"
+          bun install
+          bunx vite build --config vite.repoghost.resolve.mjs
+          xcopy /E /I /Y dist .jac\client\dist
 
       # jac build already produced .jac/client/dist, so clear beforeBuildCommand
       # in tauri.conf.json to prevent Tauri from trying to re-run the bun script
@@ -193,20 +175,12 @@ jobs:
       - name: jac install — restore dependencies
         run: jac install
 
-      - name: jac js — compile frontend
-        run: jac js main.jac
-
-      - name: Debug — show jac js output
-        continue-on-error: true
-        run: echo "=== repo root ===" && ls -la && echo "=== .jac dir ===" && ls -la .jac || echo ".jac missing" && echo "=== .jac/client ===" && ls -la .jac/client || echo ".jac/client missing"
-
       - name: Vite bundle frontend
-        continue-on-error: true
         run: |
-          echo "=== repo root ==="
-          ls -la
-          echo "=== .jac contents if exists ==="
-          ls -la .jac || echo ".jac does not exist"
+          bun install
+          bunx vite build --config vite.repoghost.resolve.mjs
+          mkdir -p .jac/client/dist
+          cp -r dist/* .jac/client/dist/
 
       - name: Patch tauri.conf.json — clear beforeBuildCommand
         run: |
@@ -306,20 +280,12 @@ jobs:
       - name: jac install — restore dependencies
         run: jac install
 
-      - name: jac js — compile frontend
-        run: jac js main.jac
-
-      - name: Debug — show jac js output
-        continue-on-error: true
-        run: echo "=== repo root ===" && ls -la && echo "=== .jac dir ===" && ls -la .jac || echo ".jac missing" && echo "=== .jac/client ===" && ls -la .jac/client || echo ".jac/client missing"
-
       - name: Vite bundle frontend
-        continue-on-error: true
         run: |
-          echo "=== repo root ==="
-          ls -la
-          echo "=== .jac contents if exists ==="
-          ls -la .jac || echo ".jac does not exist"
+          bun install
+          bunx vite build --config vite.repoghost.resolve.mjs
+          mkdir -p .jac/client/dist
+          cp -r dist/* .jac/client/dist/
 
       - name: Patch tauri.conf.json — clear beforeBuildCommand
         run: |

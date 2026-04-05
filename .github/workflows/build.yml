@@ -81,14 +81,17 @@ jobs:
       - name: jac install — restore dependencies
         run: jac install
 
-      - name: jac js — transpile client
+      - name: jac start — scaffold client
         shell: bash
-        run: jac js main.jac
+        run: |
+          jac start main.jac &
+          sleep 15
+          kill %1
 
       - name: Debug — list .jac after jac js
         shell: bash
         continue-on-error: true
-        run: find .jac -type f | head -50
+        run: find .jac -type f | head -80
 
       - name: Vite bundle frontend
         shell: bash
@@ -179,12 +182,15 @@ jobs:
       - name: jac install — restore dependencies
         run: jac install
 
-      - name: jac js — transpile client
-        run: jac js main.jac
+      - name: jac start — scaffold client
+        run: |
+          jac start main.jac &
+          sleep 15
+          kill %1
 
       - name: Debug — list .jac after jac js
         continue-on-error: true
-        run: find .jac -type f | head -50
+        run: find .jac -type f | head -80
 
       - name: Vite bundle frontend
         run: |
@@ -287,12 +293,15 @@ jobs:
       - name: jac install — restore dependencies
         run: jac install
 
-      - name: jac js — transpile client
-        run: jac js main.jac
+      - name: jac start — scaffold client
+        run: |
+          jac start main.jac &
+          sleep 15
+          kill %1
 
       - name: Debug — list .jac after jac js
         continue-on-error: true
-        run: find .jac -type f | head -50
+        run: find .jac -type f | head -80
 
       - name: Vite bundle frontend
         run: |

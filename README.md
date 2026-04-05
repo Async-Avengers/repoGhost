@@ -2,6 +2,83 @@
 
 RepoGhost is a desktop-ready Jac fullstack application that ingests a permitted repository path and meeting context, builds a graph-native project context, and turns developer conversation into structured engineering output.
 
+## Setup and Deployment
+
+Install the requirements in the next section first, then run:
+
+```bash
+git clone https://github.com/Async-Avengers/repoGhost.git
+cd repoGhost
+jac build
+```
+
+Start RepoGhost with the launcher for your platform:
+
+```bash
+./run.sh
+```
+
+```powershell
+.\run.ps1
+```
+
+The launch scripts start the Jac server and open the compiled app at `http://localhost:8001/static/index.html`. API docs are available at `http://localhost:8001/docs`.
+
+## Requirements and Installation
+
+Required tools:
+
+- Git
+- curl
+- Node.js
+- Python 3.12+
+- Bun
+
+Official install pages:
+
+- Git: [https://git-scm.com/downloads.html](https://git-scm.com/downloads.html)
+- curl: [https://curl.se/download.html](https://curl.se/download.html)
+- Node.js: [https://nodejs.org/en/download/](https://nodejs.org/en/download/)
+- Python: [https://www.python.org/downloads/](https://www.python.org/downloads/)
+- Bun: [https://bun.sh/docs/installation](https://bun.sh/docs/installation)
+- Jac: [https://docs.jaseci.org/quick-guide/install/](https://docs.jaseci.org/quick-guide/install/)
+
+Install Jac with the official one-line installer:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/jaseci-labs/jaseci/main/scripts/install.sh | bash
+```
+
+If `curl` is not installed yet:
+
+- Linux: install it with your distro package manager, such as `sudo apt install curl`, `sudo dnf install curl`, or `sudo pacman -S curl`
+- macOS: `curl` is usually already present; if not, install Xcode Command Line Tools or Homebrew and run `brew install curl`
+- Windows: install it with `winget install cURL.cURL`, then reopen PowerShell
+
+After installing Git, Node.js, Python, Bun, and Jac, make sure `git`, `curl`, `node`, `python`, `bun`, and `jac` are all available on your `PATH` before continuing.
+
+On Windows, enable the installer option to add Python and Node.js to `PATH`, then open a new terminal before running the commands below.
+
+From the repo root, install the project's pinned Python dependencies, then sync the Jac project environment:
+
+```bash
+python -m pip install -r requirements.txt
+jac install
+```
+
+Verify the toolchain before building:
+
+```bash
+git --version
+curl --version
+node --version
+python --version
+bun --version
+jac --version
+```
+
+If PowerShell blocks local scripts on Windows, run `powershell -ExecutionPolicy Bypass -File .\run.ps1` instead.
+
 ## Current build
 
 - Dark polished widget + expanded workspace shell
@@ -14,32 +91,6 @@ RepoGhost is a desktop-ready Jac fullstack application that ingests a permitted 
 - Final structured outputs rendered across the widget and workspace
 - Loading, status, and error-state polish for demo flow
 - Desktop-target readiness notes for compact widget and expanded workspace modes
-
-## Run locally
-
-### Prerequisites
-
-- Jac CLI installed and available on `PATH`
-- Bun installed and available on `PATH`
-- Python available for the Jac runtime
-
-This project uses the Jac client/Vite pipeline, and that currently depends on Bun on a fresh machine.
-
-### Fresh machine setup
-
-```bash
-python -m pip install -r requirements.txt
-jac install
-jac check main.jac
-jac start --dev main.jac
-```
-
-### Local URLs
-
-- App UI: `http://127.0.0.1:8000`
-- Jac API docs: `http://127.0.0.1:8001/docs`
-
-`http://127.0.0.1:8001` is the API server, not the main app page.
 
 ## Docker
 
@@ -71,7 +122,7 @@ A GitHub Actions workflow (`.github/workflows/docker-build.yml`) builds and vali
 - Use `jac install` after dependency or `jac.toml` changes.
 - Bun is required for the generated client build/dev flow.
 - Use `jac check main.jac` to validate the project after pulling on a new device.
-- Use `jac build` to validate the production client bundle.
+- Use `jac build` to regenerate the compiled client bundle used by `run.sh` and `run.ps1`.
 - Use `jac start --dev main.jac` for local iteration.
 - RepoGhost is currently optimized for local demo mode with no auth requirement.
 - The compact widget and expanded workspace are both available in the same dev UI shell.
@@ -80,19 +131,21 @@ A GitHub Actions workflow (`.github/workflows/docker-build.yml`) builds and vali
 
 ### The app works at `/docs` but not in the browser UI
 
-That usually means the Jac API is up, but the Vite client is not the page you are opening.
+That usually means the Jac API is up, but you opened the wrong URL for the way you started the app.
 
-- open `http://127.0.0.1:8000` for the UI
+- open `http://localhost:8001/static/index.html` after `./run.sh` or `.\run.ps1`
+- open `http://127.0.0.1:8000` only when using `jac start --dev main.jac`
 - open `http://127.0.0.1:8001/docs` for the API docs
 
 ### Fresh pull on a different machine fails to start
 
 Check these first:
 
-- Bun is installed and available on `PATH`
+- Git, Python, Bun, and Jac are installed and available on `PATH`
+- `python -m pip install -r requirements.txt` completed successfully
 - `jac install` completed successfully
-- `jac check main.jac` passes
-- you are opening `http://127.0.0.1:8000`, not `:8001`
+- `jac build` completed successfully
+- you are opening `http://localhost:8001/static/index.html` after using the launcher scripts
 
 ### Browser shows generated-module/import errors
 
@@ -100,11 +153,12 @@ Stop the dev server, then rerun:
 
 ```bash
 jac install
-jac check main.jac
-jac start --dev main.jac
+jac build
 ```
 
-If a stale generated client still causes trouble, remove the local `.jac/` folder and start again.
+Then restart with `./run.sh` on Linux/macOS or `.\run.ps1` on Windows.
+
+If a stale generated client still causes trouble, remove the local `.jac/` folder and build again.
 
 ## Team testing guide
 
@@ -124,7 +178,7 @@ This is the best way to verify the project is understandable and runnable withou
 
 - Install dependencies exactly as documented.
 - Use the Jac/Jaseci versions noted in the README, if specified.
-- Start the app in development mode using the documented command.
+- Start the app using the documented launcher script for their OS.
 
 They should confirm:
 

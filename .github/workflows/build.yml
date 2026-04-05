@@ -85,10 +85,11 @@ jobs:
         run: jac install
 
       - name: Vite bundle frontend
+        shell: bash
         run: |
-          bun install
-          bunx vite build --config vite.repoghost.resolve.mjs
-          xcopy /E /I /Y dist .jac\client\dist
+          cp .jac/client/configs/package.json .jac/client/package.json
+          cd .jac/client && bun install
+          cd .jac/client && node_modules/.bin/vite build --config configs/vite.config.js
 
       # jac build already produced .jac/client/dist, so clear beforeBuildCommand
       # in tauri.conf.json to prevent Tauri from trying to re-run the bun script
@@ -177,10 +178,9 @@ jobs:
 
       - name: Vite bundle frontend
         run: |
-          bun install
-          bunx vite build --config vite.repoghost.resolve.mjs
-          mkdir -p .jac/client/dist
-          cp -r dist/* .jac/client/dist/
+          cp .jac/client/configs/package.json .jac/client/package.json
+          cd .jac/client && bun install
+          cd .jac/client && node_modules/.bin/vite build --config configs/vite.config.js
 
       - name: Patch tauri.conf.json — clear beforeBuildCommand
         run: |
@@ -282,10 +282,9 @@ jobs:
 
       - name: Vite bundle frontend
         run: |
-          bun install
-          bunx vite build --config vite.repoghost.resolve.mjs
-          mkdir -p .jac/client/dist
-          cp -r dist/* .jac/client/dist/
+          cp .jac/client/configs/package.json .jac/client/package.json
+          cd .jac/client && bun install
+          cd .jac/client && node_modules/.bin/vite build --config configs/vite.config.js
 
       - name: Patch tauri.conf.json — clear beforeBuildCommand
         run: |

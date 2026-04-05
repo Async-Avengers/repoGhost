@@ -113,17 +113,116 @@ def build_trace(repo_summary_name: str, meeting_summary_text: str, file_count: i
 }
 
 
+def dir_area_label(segment: str) -> str {
+    if segment in ["components", "component"] { return "UI Components"; }
+    if segment in ["pages", "page", "views", "view", "screens"] { return "Pages / Views"; }
+    if segment in ["api", "routes", "route", "endpoints"] { return "API Routes"; }
+    if segment in ["controllers", "controller", "handlers"] { return "Controllers"; }
+    if segment in ["services", "service"] { return "Services"; }
+    if segment in ["agents", "agent"] { return "Agents"; }
+    if segment in ["models", "model", "schema", "schemas", "types", "entities"] { return "Data Models"; }
+    if segment in ["orchestration", "workflows", "workflow"] { return "Orchestration"; }
+    if segment in ["hooks", "hook", "composables"] { return "Hooks"; }
+    if segment in ["graph", "graphs"] { return "Graph Engine"; }
+    if segment in ["memory", "store", "stores", "state"] { return "State / Memory"; }
+    if segment in ["utils", "util", "helpers", "lib", "shared", "common"] { return "Utilities"; }
+    if segment in ["config", "configs", "configuration", "settings"] { return "Configuration"; }
+    if segment in ["tests", "test", "__tests__", "spec", "specs"] { return "Tests"; }
+    if segment in ["styles", "style", "css", "assets", "public", "static"] { return "Styles / Assets"; }
+    if segment in ["middleware", "middlewares"] { return "Middleware"; }
+    if segment in ["migrations", "migration", "db", "database"] { return "Database"; }
+    if segment in ["docs", "doc", "documentation"] { return "Documentation"; }
+    if segment in ["src"] { return "Source"; }
+    if segment in ["app"] { return "Application"; }
+    return segment;
+}
+
+def dir_area_team(label: str) -> str {
+    if label in ["UI Components", "Pages / Views", "Styles / Assets", "Hooks"] { return "Client Team"; }
+    if label in ["API Routes", "Controllers", "Services", "Middleware", "Database"] { return "Backend Team"; }
+    if label in ["Agents", "Orchestration", "Graph Engine", "State / Memory"] { return "Core Team"; }
+    if label in ["Data Models", "Configuration"] { return "Core Team"; }
+    if label in ["Tests"] { return "QA Team"; }
+    if label in ["Documentation"] { return "All Teams"; }
+    if label in ["Utilities", "Source", "Application"] { return "Core Team"; }
+    return "Core Team";
+}
+
+def dir_area_confidence(label: str) -> float {
+    if label in ["API Routes", "Controllers"] { return 0.80; }
+    if label in ["Agents", "Orchestration"] { return 0.78; }
+    if label in ["Services"] { return 0.76; }
+    if label in ["Graph Engine", "Source"] { return 0.75; }
+    if label in ["UI Components"] { return 0.74; }
+    if label in ["Pages / Views"] { return 0.73; }
+    if label in ["Data Models"] { return 0.72; }
+    if label in ["Hooks"] { return 0.70; }
+    if label in ["State / Memory", "Middleware", "Database"] { return 0.68; }
+    if label in ["Configuration"] { return 0.65; }
+    if label in ["Styles / Assets"] { return 0.60; }
+    if label in ["Tests"] { return 0.58; }
+    return 0.50;
+}
+
+def path_area_key(file_path: str) -> str {
+    parts: list[str] = file_path.split("/");
+    if len(parts) >= 3 {
+        seg0: str = parts[0].lower();
+        seg1: str = parts[1].lower();
+        if seg0 in ["src", "app", "lib"] {
+            label: str = dir_area_label(seg1);
+            if label != seg1 {
+                return seg0 + "/" + seg1;
+            }
+        }
+    }
+    if len(parts) >= 2 {
+        seg: str = parts[0].lower();
+        label: str = dir_area_label(seg);
+        if label != seg {
+            return seg;
+        }
+    }
+    return "";
+
+
+}
+
 def build_ownership(repo_summary_name: str, files: list[FileMatch]) -> list[OwnershipGuess] {
     ownership: list[OwnershipGuess] = [];
-    if len(files) > 0 {
-        ownership.append(OwnershipGuess(area="repo", owner="Core Maintainers", confidence=0.58, rationale="Ownership inferred from top-level structure in " + repo_summary_name + "."));
-    }
+    seen_keys: list[str] = [];
+    seen_labels: list[str] = [];
+
     for item in files {
-        if item.path.startswith("app/components") {
-            ownership.append(OwnershipGuess(area="ui", owner="Frontend Team", confidence=0.71, rationale="UI modules cluster under app/components."));
+        key: str = path_area_key(item.path);
+        if not key or key in seen_keys {
+            continue;
+        }
+        parts: list[str] = key.split("/");
+        seg: str = parts[-1];
+        label: str = dir_area_label(seg);
+        if label in seen_labels {
+            continue;
+        }
+        seen_keys.append(key);
+        seen_labels.append(label);
+        team: str = dir_area_team(label);
+        conf: float = dir_area_confidence(label);
+        ownership.append(OwnershipGuess(
+            area=label,
+            owner=team,
+            confidence=conf,
+            rationale="Inferred from files under " + key + "/ in " + repo_summary_name + "."
+        ));
+        if len(ownership) >= 5 {
             break;
         }
     }
+
+    if len(ownership) == 0 and len(files) > 0 {
+        ownership.append(OwnershipGuess(area="Project", owner="Core Team", confidence=0.50, rationale="Ownership inferred from top-level structure in " + repo_summary_name + "."));
+    }
+
     return ownership;
 }
 
@@ -225,9 +324,9 @@ def:pub run_workflow(repo_path: str, meeting_text: str, prompt: str, mode: str =
     );
     bundle.planning = build_planning(request, merged_files, merged_blockers, bundle.context_graph, meeting_summary);
     bundle.action_plan = build_action_plan(request, bundle.planning, merged_files);
-    bundle.tasks = build_action_tasks(request, bundle.planning, merged_files);
+    bundle.tasks = build_action_tasks(request, bundle.planning, merged_files, meeting_summary);
     bundle.tickets = write_tickets(request, bundle.planning, bundle.tasks, merged_files);
-    bundle.standup = generate_standup(request, bundle.planning, bundle.tasks, bundle.trace);
+    bundle.standup = generate_standup(request, bundle.planning, bundle.tasks, bundle.trace, meeting_summary);
     bundle.handoff = generate_handoff(request, bundle.planning, bundle.tasks, merged_files);
     bundle.review = prepare_review_scope(request, bundle.planning, bundle.tasks, merged_files);
     bundle.trace = build_trace(repo_summary.project_name, meeting_summary.summary, len(merged_files));

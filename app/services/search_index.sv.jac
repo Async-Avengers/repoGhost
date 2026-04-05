@@ -16,60 +16,58 @@ def term_score(lowered_path: str, terms: list[str]) -> float {
 }
 
 def path_score(lowered_path: str) -> float {
-    if lowered_path.endswith(".sv.jac") {
+    parts: list[str] = lowered_path.split("/");
+    filename: str = parts[len(parts) - 1];
+    base: str = filename.split(".")[0] if "." in filename else filename;
+    entry_names: list[str] = ["main", "index", "app", "server", "mod", "lib", "wsgi", "asgi", "manage", "program"];
+    if base in entry_names {
         return 0.12;
     }
-    if lowered_path.endswith(".cl.jac") {
-        return 0.08;
+    if filename.startswith("readme") {
+        return 0.10;
     }
-    if lowered_path.endswith("readme.md") {
-        return 0.05;
+    key_dirs: list[str] = [
+        "orchestration", "workflow", "graph",
+        "services", "service", "api", "routes", "controllers",
+        "components", "views", "pages",
+        "models", "schema", "agents"
+    ];
+    for d in key_dirs {
+        if ("/" + d + "/") in ("/" + lowered_path) {
+            return 0.08;
+        }
     }
     return 0.0;
 }
 
-def score_file(path_text: str, prompt: str, meeting_text: str) -> float {
-    lowered_path = path_text.lower();
-    combined_text: str = prompt + " " + meeting_text;
-    lowered_text: str = combined_text.lower();
-    terms: list[str] = split_terms(lowered_text);
-    return 0.1 + term_score(lowered_path, terms) + path_score(lowered_path);
-}
-
-def rationale_for(path_text: str, prompt: str, meeting_text: str) -> str {
-    return "Ranked from path heuristics using " + str(len(split_terms(prompt))) + " prompt terms and " + str(len(split_terms(meeting_text))) + " meeting terms for: " + path_text;
-}
-
-def insert_ranked(ranked: list[FileMatch], candidate: FileMatch) -> list[FileMatch] {
-    ordered: list[FileMatch] = [];
-    inserted = False;
-    for item in ranked {
-        if not inserted and candidate.score > item.score {
-            ordered.append(candidate);
-            inserted = True;
+def insert_sorted(ranked: list[FileMatch], candidate: FileMatch) -> None {
+    for (index, item) in enumerate(ranked) {
+        if candidate.score > item.score {
+            ranked.insert(index, candidate);
+            return;
         }
-        ordered.append(item);
     }
-    if not inserted {
-        ordered.append(candidate);
-    }
-    return ordered;
+    ranked.append(candidate);
 }
 
 def:pub search_repo(repo_path: str, prompt: str, meeting_text: str) -> list[FileMatch] {
     scanned: list[FileMatch] = scan_repo(repo_path);
     ranked: list[FileMatch] = [];
+    combined_text: str = prompt + " " + meeting_text;
+    terms: list[str] = split_terms(combined_text.lower());
+    prompt_term_count: int = len(split_terms(prompt));
+    meeting_term_count: int = len(split_terms(meeting_text));
+    rationale_prefix: str = "Ranked from path heuristics using " + str(prompt_term_count) + " prompt terms and " + str(meeting_term_count) + " meeting terms for: ";
     for item in scanned {
+        lowered_path: str = item.path.lower();
+        score: float = 0.1 + term_score(lowered_path, terms) + path_score(lowered_path);
         candidate: FileMatch = FileMatch(
             path=item.path,
-            score=score_file(item.path, prompt, meeting_text),
-            rationale=rationale_for(item.path, prompt, meeting_text),
+            score=score,
+            rationale=rationale_prefix + item.path,
             kind=item.kind
         );
-        ranked = insert_ranked(ranked, candidate);
-    }
-    if len(ranked) > 12 {
-        return ranked[:12];
+        insert_sorted(ranked, candidate);
     }
     return ranked;
 }

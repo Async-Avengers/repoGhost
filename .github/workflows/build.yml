@@ -87,13 +87,20 @@ jobs:
       - name: jac js — compile frontend
         run: jac js main.jac
 
-      # jac js transpiles Jac → .jac/client/compiled/. Vite then bundles those
-      # compiled files into .jac/client/dist/ (index.html + hashed JS + CSS),
-      # which is what Tauri's frontendDist points at. The .jac/ tree is
-      # gitignored, so Vite creates the dist/ directory fresh on each CI run.
+      # jac js transpiles Jac → .jac/client/compiled/ and generates
+      # .jac/client/configs/vite.config.js + configs/package.json. The .jac/
+      # tree is gitignored so node_modules won't exist in CI. Copy the generated
+      # package.json up one level so bun can find it (bun install looks in the
+      # cwd, not in subdirs), install deps there, then run the Vite bundle which
+      # writes the final index.html + JS + CSS to .jac/client/dist/ — the path
+      # Tauri's frontendDist expects.
       - name: Vite bundle frontend
         shell: bash
-        run: cd .jac/client && bunx vite build --config configs/vite.config.js
+        run: |
+          cp .jac/client/configs/package.json .jac/client/package.json
+          cd .jac/client
+          bun install
+          bunx vite build --config configs/vite.config.js
 
       # jac build already produced .jac/client/dist, so clear beforeBuildCommand
       # in tauri.conf.json to prevent Tauri from trying to re-run the bun script
@@ -184,7 +191,11 @@ jobs:
         run: jac js main.jac
 
       - name: Vite bundle frontend
-        run: cd .jac/client && bunx vite build --config configs/vite.config.js
+        run: |
+          cp .jac/client/configs/package.json .jac/client/package.json
+          cd .jac/client
+          bun install
+          bunx vite build --config configs/vite.config.js
 
       - name: Patch tauri.conf.json — clear beforeBuildCommand
         run: |
@@ -288,7 +299,11 @@ jobs:
         run: jac js main.jac
 
       - name: Vite bundle frontend
-        run: cd .jac/client && bunx vite build --config configs/vite.config.js
+        run: |
+          cp .jac/client/configs/package.json .jac/client/package.json
+          cd .jac/client
+          bun install
+          bunx vite build --config configs/vite.config.js
 
       - name: Patch tauri.conf.json — clear beforeBuildCommand
         run: |

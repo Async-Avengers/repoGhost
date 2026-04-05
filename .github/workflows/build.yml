@@ -85,7 +85,7 @@ jobs:
         run: jac install
 
       - name: jac js — compile frontend
-        run: jac js app.cl.jac
+        run: jac js main.jac
 
       # jac build already produced .jac/client/dist, so clear beforeBuildCommand
       # in tauri.conf.json to prevent Tauri from trying to re-run the bun script
@@ -173,7 +173,7 @@ jobs:
         run: jac install
 
       - name: jac js — compile frontend
-        run: jac js app.cl.jac
+        run: jac js main.jac
 
       - name: Patch tauri.conf.json — clear beforeBuildCommand
         run: |
@@ -274,7 +274,7 @@ jobs:
         run: jac install
 
       - name: jac js — compile frontend
-        run: jac js app.cl.jac
+        run: jac js main.jac
 
       - name: Patch tauri.conf.json — clear beforeBuildCommand
         run: |

@@ -1,0 +1,47 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "RepoGhost",
+  "version": "0.1.0",
+  "identifier": "dev.repoghost.app",
+  "build": {
+    "frontendDist": "../.jac/client/dist",
+    "devUrl": "http://localhost:8000",
+    "beforeDevCommand": "",
+    "beforeBuildCommand": "cd .. && bun run tauri:build-frontend"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "RepoGhost",
+        "width": 400,
+        "height": 844,
+        "minWidth": 400,
+        "minHeight": 844,
+        "maxWidth": 400,
+        "maxHeight": 844,
+        "resizable": false,
+        "center": true,
+        "decorations": true,
+        "transparent": false,
+        "alwaysOnTop": false,
+        "visible": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "externalBin": []
+  }
+}

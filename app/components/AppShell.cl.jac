@@ -170,7 +170,7 @@ def:pub AppShell() -> JsxElement {
     ticketTitles: list[str] = ticket_titles();
     handoffActions: list[str] = handoff_actions();
 
-    return <div className="flex min-h-screen items-center justify-center bg-background px-4 py-8">
+    return <div className="flex h-screen items-center justify-center bg-background overflow-hidden">
         <WidgetShell
             bundle={bundle}
             mode={mode}

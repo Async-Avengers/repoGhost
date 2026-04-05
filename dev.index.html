@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RepoGhost (Dev)</title>
+  </head>
+  <body>
+    <div id="__jac_root"></div>
+    <script type="module" src="/compiled/_entry.js"></script>
+    <script type="module">
+      if (import.meta.hot) {
+        function report(d) {
+          try { import.meta.hot.send("jac:client-error", d); } catch (e) {}
+        }
+        window.addEventListener("error", function (e) {
+          report({
+            type: e.error ? e.error.constructor.name : "Error",
+            message: e.error ? e.error.message : e.message,
+            stack: e.error ? e.error.stack : null,
+            source: e.filename || null,
+            line: e.lineno || null,
+            column: e.colno || null
+          });
+        });
+        window.addEventListener("unhandledrejection", function (e) {
+          var r = e.reason;
+          report({
+            type: r instanceof Error ? r.constructor.name : "UnhandledPromiseRejection",
+            message: r instanceof Error ? r.message : String(r),
+            stack: r instanceof Error ? r.stack : null,
+            source: null,
+            line: null,
+            column: null
+          });
+        });
+      }
+    </script>
+  </body>
+</html>

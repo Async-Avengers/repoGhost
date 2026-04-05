@@ -10,6 +10,7 @@ import from app.agents.ticket_writer { write_tickets }
 import from app.agents.standup_agent { generate_standup }
 import from app.agents.handoff_agent { generate_handoff }
 import from app.agents.review_prep { prepare_review_scope }
+cl import ".styles.global.css";
 cl import from app.components.Layout { Layout }
 
 cl {

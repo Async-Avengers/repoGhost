@@ -68,8 +68,5 @@ def:pub search_repo(repo_path: str, prompt: str, meeting_text: str) -> list[File
         );
         ranked = insert_ranked(ranked, candidate);
     }
-    if len(ranked) > 12 {
-        return ranked[:12];
-    }
     return ranked;
 }

@@ -8,6 +8,7 @@ obj RepoSummary {
     has frameworks: list[str] = [];
     has entry_points: list[str] = [];
     has major_dirs: list[str] = [];
+    has project_type: str = "";
 }
 
 obj TaskItem {

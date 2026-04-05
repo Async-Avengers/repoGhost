@@ -625,10 +625,7 @@ def:pub WidgetShell(
         content: str = item["content"];
         item_key: str = role + "::" + str(len(queryRows));
         if role == "assistant" {
-            rendered_html: str = try_json_html(content);
-            if not rendered_html {
-                rendered_html = md_to_html(content);
-            }
+            rendered_html: str = md_to_html(content);
             queryRows.append(
                 <div key={item_key} className="flex">
                     <div

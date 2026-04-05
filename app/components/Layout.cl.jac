@@ -1,4 +1,3 @@
-import "../../styles/global.css";
 import from app.components.AppShell { AppShell }
 
 def:pub Layout() -> JsxElement {

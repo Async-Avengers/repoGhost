@@ -14,6 +14,9 @@ def file_basename(path: str) -> str {
 }
 
 def file_ext_label(p: str) -> str {
+    if not p {
+        return "file";
+    }
     lower: str = p.lower();
     if lower.endswith(".py") or lower.endswith(".pyi") { return "py"; }
     if lower.endswith(".tsx") { return "tsx"; }
@@ -243,7 +246,7 @@ def:pub WidgetShell(
         extLabel: str = file_ext_label(item.path);
         extClass: str = file_ext_badge_class(item.path);
         fileRows.append(
-            <div key={item.path} className="flex items-center gap-2 py-1 min-w-0">
+            <div key={item.path + "::" + str(len(fileRows))} className="flex items-center gap-2 py-1 min-w-0">
                 <span className={extClass + " shrink-0"}>{extLabel}</span>
                 <span className="text-xs text-foreground truncate" title={item.path}>{item.path}</span>
             </div>

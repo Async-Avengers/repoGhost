@@ -1,4 +1,4 @@
-import from app.models.core { FileMatch }
+import from app.models.core { FileMatch, MeetingSummary }
 import from app.models.workflow { WorkflowRequest, ExecutionPlanningContext }
 import from app.models.outputs { ActionPlan, TaskItem }
 
@@ -64,11 +64,32 @@ def:pub build_action_plan(request: WorkflowRequest, planning: ExecutionPlanningC
 }
 
 
-def:pub build_action_tasks(request: WorkflowRequest, planning: ExecutionPlanningContext, files: list[FileMatch]) -> list[TaskItem] {
+def:pub build_action_tasks(request: WorkflowRequest, planning: ExecutionPlanningContext, files: list[FileMatch], meeting: MeetingSummary) -> list[TaskItem] {
     likely_files: list[str] = [];
-    for item in files[0:5] {
+    for item in files {
+        if len(likely_files) >= 5 {
+            break;
+        }
         likely_files.append(item.path);
     }
+
+    if meeting and len(meeting.action_items) > 0 {
+        tasks: list[TaskItem] = [];
+        for action in meeting.action_items {
+            if len(tasks) >= 6 {
+                break;
+            }
+            tasks.append(TaskItem(
+                title=action,
+                summary="Action item extracted from meeting context.",
+                phase="Execution",
+                dependencies=[],
+                likely_files=likely_files
+            ));
+        }
+        return tasks;
+    }
+
     deps = collect_dependencies(planning);
     tasks: list[TaskItem] = [
         TaskItem(
@@ -91,13 +112,6 @@ def:pub build_action_tasks(request: WorkflowRequest, planning: ExecutionPlanning
             phase="Phase C",
             dependencies=["confirmed scope", "risk review"],
             likely_files=likely_files
-        ),
-        TaskItem(
-            title="Prepare delivery artifacts",
-            summary="Generate tickets, standup, handoff, and review prep from the merged planning context.",
-            phase="Phase D",
-            dependencies=["planning context", "implementation notes"],
-            likely_files=["app/orchestration/workflow.sv.jac", "app/components/WorkspaceShell.cl.jac"]
         )
     ];
     if request.mode == "meeting_to_tickets" {

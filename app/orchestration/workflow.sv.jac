@@ -324,9 +324,9 @@ def:pub run_workflow(repo_path: str, meeting_text: str, prompt: str, mode: str =
     );
     bundle.planning = build_planning(request, merged_files, merged_blockers, bundle.context_graph, meeting_summary);
     bundle.action_plan = build_action_plan(request, bundle.planning, merged_files);
-    bundle.tasks = build_action_tasks(request, bundle.planning, merged_files);
+    bundle.tasks = build_action_tasks(request, bundle.planning, merged_files, meeting_summary);
     bundle.tickets = write_tickets(request, bundle.planning, bundle.tasks, merged_files);
-    bundle.standup = generate_standup(request, bundle.planning, bundle.tasks, bundle.trace);
+    bundle.standup = generate_standup(request, bundle.planning, bundle.tasks, bundle.trace, meeting_summary);
     bundle.handoff = generate_handoff(request, bundle.planning, bundle.tasks, merged_files);
     bundle.review = prepare_review_scope(request, bundle.planning, bundle.tasks, merged_files);
     bundle.trace = build_trace(repo_summary.project_name, meeting_summary.summary, len(merged_files));

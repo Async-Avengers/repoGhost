@@ -24,6 +24,9 @@ notes = "Desktop packaging is not wired yet, but the UI shell and local-first wo
 [dependencies.npm]
 jac-client-node = "1.0.7"
 
+[dev-dependencies]
+watchdog = ">=3.0.0"
+
 [dependencies.npm.dev]
 "@jac-client/dev-deps" = "2.0.0"
 "@tailwindcss/vite" = "^4.1.17"
